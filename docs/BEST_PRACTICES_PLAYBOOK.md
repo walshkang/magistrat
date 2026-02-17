@@ -4,7 +4,7 @@ Purpose: Deterministic, auditable rules used for:
 (3) Deck findings with Safe/Caution/Manual risk labels and typed, reversible patches.
 
 playbook_id: "magistrat_default_v1"
-playbook_version: 0.2.0
+playbook_version: 0.2.1
 last_updated: 2026-02-17
 default_profile: "consulting_generic"
 rule_id_format: "BP-*"
@@ -91,6 +91,17 @@ not_analyzed_reason_codes_v1:
   - AMBIGUOUS_TEXT_RUNS
   - AUTOFIT_PRESENT
   - VALIDATION_UNAVAILABLE
+
+## A5. Runtime capability + batching contract (v1)
+runtime_capability_policy_v1:
+  - "Every Office action path must check capability/requirement support first."
+  - "Unsupported capability paths must emit NOT_ANALYZED with reason_code=API_LIMITATION."
+  - "Fallback behavior must remain deterministic across Windows desktop and Mac desktop."
+
+office_js_execution_policy_v1:
+  - "Do not call context.sync() inside per-object loops."
+  - "Batch commands and load properties as narrowly as possible."
+  - "For large scans/applies, process in chunks (50-100 objects) and yield between chunks."
 
 # ------------------------------------------------------------
 # B) IR conventions (v1) — how rules interpret PPT objects

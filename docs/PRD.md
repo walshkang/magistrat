@@ -108,6 +108,8 @@
 
 * v1 targets a narrow “trust loop”: exemplar → checks → reversible fixes → ratify → drift detection.
 * Team rollout is additive (no blocking gates).
+* Manifest strategy for bootstrap: XML add-in manifest first for widest Windows/Mac desktop compatibility.
+* Unified manifest migration is a future step tied to explicit Copilot/Teams scope, not a v1 blocker.
 
 ---
 
@@ -256,6 +258,14 @@ Consulting teams reuse slides constantly. Masters are often unusable. Teams stil
 * Reads shapes/text runs/layout attributes from the live presentation.
 * Applies changes via typed patch operations.
 * Tracks stable object references best-effort; if a target cannot be resolved, patch is skipped and flagged.
+* Office.js execution model is explicit: queue operations and minimize `context.sync()` round trips.
+* Never perform `context.sync()` inside per-object loops; batch reads/writes and sync once per chunk.
+
+### Runtime capability gating (v1)
+
+* Every host operation is guarded by feature/requirement-set checks before execution.
+* Unsupported feature paths degrade to explicit findings with `NOT_ANALYZED` + reason code (never silent fallback).
+* Capability model must be stable across Windows desktop (WebView2) and Mac desktop (WebKit), with deterministic behavior under partial API support.
 
 ### Inputs
 
@@ -453,17 +463,23 @@ Otherwise: suggest-only or Manual.
 * Progressive scanning by scope
 * Cache IR per slide where possible
 * Avoid full-deck rescans unless requested
+* Batch Office.js reads/writes with correlated-object patterns to reduce process-bridge chatter.
+* Chunk large deck operations (target batch size 50–100 objects), yielding between chunks to keep task-pane UI responsive.
+* Avoid loading broad object graphs by default; load only required properties.
 
 ### Reliability
 
 * Graceful degradation on unsupported objects
 * “Not analyzed” is an explicit state, not a failure
+* Reconciliation remains truthful after native Undo/Redo even when external edits happen between scans.
+* Windows/Mac runtime variance is expected; platform-specific gaps must map to explicit capability states, not hidden behavior changes.
 
 ### Security & privacy (v1 posture)
 
 * On-device / in-app processing preferred where feasible
 * No training on user decks
 * Minimal telemetry; opt-in for content-derived metrics
+* Authentication-heavy cloud workflows (including NAA) are deferred until after trust-loop hardening.
 
 ---
 
@@ -497,10 +513,11 @@ Otherwise: suggest-only or Manual.
 
 1. Exemplar picker + Exemplar Health + Normalized Exemplar (virtual)
 2. Role inference + core typographic checks + safe patch ops + patch log
-3. Coverage meter + not-analyzed surfacing
-4. Undo/Redo reconciliation states
-5. Continuity engine v1
-6. Ratify + drift semantics
+3. Coverage meter + not-analyzed surfacing + capability gating
+4. Office.js batching/chunking runtime path for large decks
+5. Undo/Redo reconciliation states
+6. Continuity engine v1
+7. Ratify + drift semantics
 
 ---
 
@@ -509,6 +526,7 @@ Otherwise: suggest-only or Manual.
 * Best Practices Playbook storage format and persistence mechanism (per deck vs org rulepacks)
 * Best way to fingerprint shapes robustly across edits (object identity model)
 * Exact triggers for reconciliation (selection change, scan run, ratify check)
+* Requirement-set capability registry design (where feature gates live and how rule modules consume them)
 * Ratify stamp storage location + compatibility (desktop vs web vs mac)
 * Handling decks with multiple true “styles” (client appendix sections, etc.)
 
