@@ -1,0 +1,28 @@
+{
+  "name": "@magistrat/taskpane",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "vite build",
+    "check": "npm run lint && npm run typecheck && npm run test",
+    "dev": "vite",
+    "lint": "eslint \"src/**/*.{ts,tsx}\"",
+    "test": "vitest run --passWithNoTests",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@magistrat/compiler-core": "0.1.0",
+    "@magistrat/office-adapter": "0.1.0",
+    "@magistrat/shared-types": "0.1.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/office-js": "^1.0.405",
+    "@types/react": "^18.3.18",
+    "@types/react-dom": "^18.3.5",
+    "@vitejs/plugin-react": "^4.4.1",
+    "vite": "^6.0.7"
+  }
+}
