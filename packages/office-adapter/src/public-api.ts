@@ -57,4 +57,12 @@ export {
   stableTargetFingerprint
 };
 
-export type { AdapterCapabilities, AdapterMode, AdapterRuntimeStatus, HostCapabilities } from "./adapter-types.js";
+export type {
+  AdapterCapabilities,
+  AdapterCapability,
+  AdapterCapabilityReasonCode,
+  AdapterCapabilityRegistry,
+  AdapterMode,
+  AdapterRuntimeStatus,
+  HostCapabilities
+} from "./adapter-types.js";

@@ -30,6 +30,11 @@ export interface GeometrySnapshot {
   rotation: number;
 }
 
+export interface ShapeInspectability {
+  typography: boolean;
+  bullets: boolean;
+}
+
 export interface ShapeSnapshot {
   objectId: string;
   name: string;
@@ -44,6 +49,7 @@ export interface ShapeSnapshot {
   inferredRoleScore?: number | undefined;
   supportedForAnalysis: boolean;
   autofitEnabled: boolean;
+  inspectability: ShapeInspectability;
 }
 
 export interface SlideSnapshot {

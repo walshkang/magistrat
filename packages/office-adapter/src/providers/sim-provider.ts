@@ -1,10 +1,16 @@
 import type { DeckSnapshot, PatchOp, PatchRecord, ReconcileSignature } from "@magistrat/shared-types";
 import { simDeckFixture } from "../fixtures/sim-deck.fixture.js";
-import type { AdapterProvider, AdapterRuntimeStatus, HostCapabilities } from "../adapter-types.js";
+import type {
+  AdapterCapabilityRegistry,
+  AdapterProvider,
+  AdapterRuntimeStatus,
+  HostCapabilities
+} from "../adapter-types.js";
 
 interface SimProviderOptions {
   getDocumentIdentifier: () => string;
   hostCapabilities: HostCapabilities;
+  capabilityRegistry: AdapterCapabilityRegistry;
 }
 
 let inMemoryDeck: DeckSnapshot | undefined;
@@ -17,7 +23,8 @@ export function createSimProvider(options: SimProviderOptions): AdapterProvider 
       readDeckSnapshot: { supported: true },
       applyPatchOps: { supported: true },
       selectObject: { supported: true }
-    }
+    },
+    capabilityRegistry: options.capabilityRegistry
   };
 
   return {

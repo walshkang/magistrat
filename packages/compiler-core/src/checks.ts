@@ -60,6 +60,18 @@ export function runChecks(deck: DeckSnapshot, styleMap: StyleMap): RunChecksResu
         pushFinding(finding);
       }
 
+      if (!shape.inspectability.typography) {
+        pushFinding(
+          createNotAnalyzedFinding(
+            slide.slideId,
+            shape.objectId,
+            "API_LIMITATION",
+            "Typography tokens were unavailable in current host runtime."
+          )
+        );
+        continue;
+      }
+
       const role = shape.inferredRole ?? "UNKNOWN";
       const roleScore = shape.inferredRoleScore ?? 0;
 
@@ -113,6 +125,24 @@ export function runChecks(deck: DeckSnapshot, styleMap: StyleMap): RunChecksResu
         continue;
       }
 
+      const bulletChecksBlocked =
+        (role === "BULLET_L1" ||
+          role === "BULLET_L2" ||
+          expected.bulletIndent !== undefined ||
+          expected.bulletHanging !== undefined) &&
+        !shape.inspectability.bullets;
+
+      if (bulletChecksBlocked) {
+        pushFinding(
+          createNotAnalyzedFinding(
+            slide.slideId,
+            shape.objectId,
+            "API_LIMITATION",
+            "Bullet indentation metrics were unavailable in current host runtime."
+          )
+        );
+      }
+
       const mismatchFindings = evaluateTypographyAndStructure({
         slideId: slide.slideId,
         objectId: shape.objectId,
@@ -122,7 +152,8 @@ export function runChecks(deck: DeckSnapshot, styleMap: StyleMap): RunChecksResu
         inferredRoleScore: roleScore,
         autofitEnabled: shape.autofitEnabled,
         bulletIndent: shape.paragraphs[0]?.bulletIndent,
-        bulletHanging: shape.paragraphs[0]?.bulletHanging
+        bulletHanging: shape.paragraphs[0]?.bulletHanging,
+        skipBulletChecks: bulletChecksBlocked
       });
 
       for (const finding of mismatchFindings.findings) {
@@ -267,6 +298,7 @@ interface EvaluateInput {
   autofitEnabled: boolean;
   bulletIndent?: number | undefined;
   bulletHanging?: number | undefined;
+  skipBulletChecks: boolean;
 }
 
 function evaluateTypographyAndStructure(input: EvaluateInput): {
@@ -437,8 +469,11 @@ function evaluateTypographyAndStructure(input: EvaluateInput): {
   }
 
   const hasBulletExpectation =
-    input.role === "BULLET_L1" || input.role === "BULLET_L2" || input.expected.bulletIndent !== undefined;
-  if (hasBulletExpectation) {
+    input.role === "BULLET_L1" ||
+    input.role === "BULLET_L2" ||
+    input.expected.bulletIndent !== undefined ||
+    input.expected.bulletHanging !== undefined;
+  if (hasBulletExpectation && !input.skipBulletChecks) {
     const expectedIndent = input.expected.bulletIndent;
     const expectedHanging = input.expected.bulletHanging;
 

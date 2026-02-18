@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { DocumentStateV1 } from "@magistrat/shared-types";
 import {
   applyPatchOps,
@@ -10,8 +10,32 @@ import {
   stableTargetFingerprint
 } from "../src/public-api.js";
 
+interface OfficeTestContext {
+  host?: string;
+  platform?: string;
+  requirements?: {
+    isSetSupported?: (setName: string, minVersion?: string) => boolean;
+  };
+  document?: {
+    url?: string;
+  };
+}
+
+interface PowerPointTestGlobal {
+  run?: (callback: (context: unknown) => Promise<unknown>) => Promise<unknown>;
+}
+
+const originalOffice = (globalThis as { Office?: unknown }).Office;
+const originalPowerPoint = (globalThis as { PowerPoint?: unknown }).PowerPoint;
+
 describe("office adapter public api", () => {
   beforeEach(() => {
+    resetAdapterProviderForTests();
+    restoreOfficeGlobals();
+  });
+
+  afterEach(() => {
+    restoreOfficeGlobals();
     resetAdapterProviderForTests();
   });
 
@@ -43,6 +67,62 @@ describe("office adapter public api", () => {
     expect(status.hostCapabilities.officeAvailable).toBe(false);
     expect(status.capabilities.readDeckSnapshot.supported).toBe(true);
     expect(status.capabilities.applyPatchOps.supported).toBe(true);
+  });
+
+  it("uses OFFICE_SHADOW when Office is present on unsupported web platform", () => {
+    setOfficeContext({
+      host: "PowerPoint",
+      platform: "OfficeOnline",
+      requirements: {
+        isSetSupported: () => true
+      }
+    });
+
+    const status = getRuntimeStatus();
+    expect(status.mode).toBe("OFFICE_SHADOW");
+    expect(status.capabilities.readDeckSnapshot.supported).toBe(false);
+    expect(status.capabilities.readDeckSnapshot.reasonCode).toBe("PLATFORM_UNSUPPORTED");
+  });
+
+  it("uses OFFICE_SHADOW when desktop host lacks required PowerPointApi support", () => {
+    setOfficeContext({
+      host: "PowerPoint",
+      platform: "PC",
+      requirements: {
+        isSetSupported: (_setName, minVersion) => minVersion === "1.6"
+      }
+    });
+    setPowerPointContext({
+      run: async (callback) => callback(createEmptyPowerPointContext())
+    });
+
+    const status = getRuntimeStatus();
+    expect(status.mode).toBe("OFFICE_SHADOW");
+    expect(status.capabilities.readDeckSnapshot.supported).toBe(false);
+    expect(status.capabilities.readDeckSnapshot.reasonCode).toBe("REQUIREMENT_SET_UNSUPPORTED");
+  });
+
+  it("uses OFFICE_READONLY when desktop host satisfies read capability gates", async () => {
+    setOfficeContext({
+      host: "PowerPoint",
+      platform: "PC",
+      requirements: {
+        isSetSupported: () => true
+      }
+    });
+    setPowerPointContext({
+      run: async (callback) => callback(createEmptyPowerPointContext())
+    });
+
+    const status = getRuntimeStatus();
+    expect(status.mode).toBe("OFFICE_READONLY");
+    expect(status.capabilities.readDeckSnapshot.supported).toBe(true);
+    expect(status.capabilities.applyPatchOps.supported).toBe(false);
+    expect(status.capabilities.applyPatchOps.reasonCode).toBe("POLICY_DISABLED");
+    expect(status.capabilityRegistry.requirementSets.powerPointApi_1_4.supported).toBe(true);
+
+    const snapshot = await readDeckSnapshot();
+    expect(snapshot.slides).toEqual([]);
   });
 
   it("applies safe patch ops against mutable SIM deck and records signatures", async () => {
@@ -83,3 +163,56 @@ describe("office adapter public api", () => {
     expect(a.preconditionHash).toBe(b.preconditionHash);
   });
 });
+
+function setOfficeContext(context: OfficeTestContext): void {
+  (globalThis as unknown as { Office?: { context?: OfficeTestContext } }).Office = {
+    context
+  };
+}
+
+function setPowerPointContext(powerPoint: PowerPointTestGlobal): void {
+  (globalThis as unknown as { PowerPoint?: PowerPointTestGlobal }).PowerPoint = powerPoint;
+}
+
+function restoreOfficeGlobals(): void {
+  const globalAny = globalThis as unknown as {
+    Office?: unknown;
+    PowerPoint?: unknown;
+  };
+
+  if (originalOffice === undefined) {
+    delete globalAny.Office;
+  } else {
+    globalAny.Office = originalOffice;
+  }
+
+  if (originalPowerPoint === undefined) {
+    delete globalAny.PowerPoint;
+  } else {
+    globalAny.PowerPoint = originalPowerPoint;
+  }
+}
+
+function createEmptyPowerPointContext(): {
+  presentation: {
+    slides: {
+      items: [];
+      load: (_select: string) => void;
+    };
+  };
+  sync: () => Promise<void>;
+} {
+  return {
+    presentation: {
+      slides: {
+        items: [],
+        load: (_select: string) => {
+          return;
+        }
+      }
+    },
+    sync: async () => {
+      return;
+    }
+  };
+}

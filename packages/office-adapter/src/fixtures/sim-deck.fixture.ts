@@ -41,7 +41,11 @@ export const simDeckFixture: DeckSnapshot = {
             rotation: 0
           },
           supportedForAnalysis: true,
-          autofitEnabled: false
+          autofitEnabled: false,
+          inspectability: {
+            typography: true,
+            bullets: true
+          }
         }
       ]
     }

@@ -38,7 +38,11 @@ export function createShape(overrides: Partial<ShapeSnapshot> = {}): ShapeSnapsh
     inferredRole: overrides.inferredRole,
     inferredRoleScore: overrides.inferredRoleScore,
     supportedForAnalysis: overrides.supportedForAnalysis ?? true,
-    autofitEnabled: overrides.autofitEnabled ?? false
+    autofitEnabled: overrides.autofitEnabled ?? false,
+    inspectability: overrides.inspectability ?? {
+      typography: true,
+      bullets: true
+    }
   };
 }
 
