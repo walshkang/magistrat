@@ -7,6 +7,7 @@ This runbook defines the canonical manual validation workflow for sideloading `@
 - Desktop-first validation is required.
 - PowerPoint web validation is diagnostic-only.
 - Product runtime behavior is not changed by this runbook.
+- Google Slides private-alpha validation lives in `/Users/walsh.kang/Documents/GitHub/magistrat/docs/SLIDES_ALPHA_RUNBOOK.md`.
 
 ## Prerequisites
 

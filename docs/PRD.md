@@ -111,6 +111,13 @@
 * Manifest strategy for bootstrap: XML add-in manifest first for widest Windows/Mac desktop compatibility.
 * Unified manifest migration is a future step tied to explicit Copilot/Teams scope, not a v1 blocker.
 
+### Google Slides private alpha expansion (2026-02-18)
+
+* PowerPoint task-pane remains the locked v1 primary platform.
+* A parallel Google Slides private-alpha track is approved to validate the same trust loop for web-native users.
+* Google alpha follows strict safeguards: in-document state persistence, safe-op-only bulk apply, explicit `NOT_ANALYZED`, and revision-guarded reconcile truthfulness.
+* Google track is additive and must not relax locked PowerPoint v1 invariants.
+
 ---
 
 ## 2) Vision (where this plays)
