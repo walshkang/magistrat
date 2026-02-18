@@ -5,3 +5,4 @@ coverage
 *.log
 .vscode
 apps/taskpane/manifest.local.xml
+apps/taskpane/.env.smoke.local

@@ -9,6 +9,7 @@
     "dev": "vite",
     "lint": "eslint \"src/**/*.{ts,tsx}\"",
     "manifest:local": "tsx scripts/materialize-manifest.ts",
+    "smoke:prepare": "tsx scripts/prepare-smoke.ts",
     "test": "vitest run --passWithNoTests",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },

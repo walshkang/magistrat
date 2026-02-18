@@ -19,8 +19,10 @@ Magistrat is a trust-first PowerPoint compiler add-in that performs deterministi
 
 - Runbook: `/Users/walsh.kang/Documents/GitHub/magistrat/docs/SMOKE_TEST_RUNBOOK.md`
 - Manifest template: `/Users/walsh.kang/Documents/GitHub/magistrat/apps/taskpane/manifest.template.xml`
-- Generate local manifest:
-  - `npm run manifest:local --workspace @magistrat/taskpane -- --origin https://<your-tunnel-host>`
+- Prepare smoke assets from a tunnel origin:
+  - `npm run smoke:prepare --workspace @magistrat/taskpane -- --origin https://<your-tunnel-host>`
+- Start taskpane dev server with generated smoke env:
+  - `npm run dev --workspace @magistrat/taskpane -- --host 0.0.0.0 --mode smoke`
 
 ## Packaging Notes
 

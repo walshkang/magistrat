@@ -19,24 +19,7 @@ npm install
 - PowerPoint account/tenant that allows sideloading add-ins.
 - One HTTPS tunnel option installed and authenticated (`ngrok` or `cloudflared`).
 
-## 1) Start Taskpane Dev Server
-
-From repo root:
-
-```bash
-npm run dev --workspace @magistrat/taskpane -- --host 0.0.0.0
-```
-
-Optional tunnel-safe overrides:
-
-```bash
-VITE_PUBLIC_ORIGIN=https://<tunnel-host> \
-VITE_ALLOWED_HOST=<tunnel-host> \
-VITE_HMR_HOST=<tunnel-host> \
-npm run dev --workspace @magistrat/taskpane -- --host 0.0.0.0
-```
-
-## 2) Start HTTPS Tunnel
+## 1) Start HTTPS Tunnel
 
 Use one of:
 
@@ -50,21 +33,41 @@ cloudflared tunnel --url http://localhost:3010
 
 Copy the final HTTPS origin (for example `https://abc.ngrok-free.app`).
 
-## 3) Generate Local Manifest
+## 2) Prepare Local Smoke Artifacts
+
+From repo root:
 
 ```bash
-npm run manifest:local --workspace @magistrat/taskpane -- --origin https://abc.ngrok-free.app
+npm run smoke:prepare --workspace @magistrat/taskpane -- --origin https://abc.ngrok-free.app
 ```
+
+This command writes:
+
+- `apps/taskpane/.env.smoke.local`
+- `apps/taskpane/manifest.local.xml`
 
 Custom output path example:
 
 ```bash
-npm run manifest:local --workspace @magistrat/taskpane -- --origin https://abc.ngrok-free.app --out /tmp/manifest.test.xml
+npm run smoke:prepare --workspace @magistrat/taskpane -- --origin https://abc.ngrok-free.app --env-out /tmp/taskpane.smoke.env --manifest-out /tmp/manifest.test.xml
 ```
 
-Default output path:
+## 3) Start Taskpane Dev Server
 
-- `apps/taskpane/manifest.local.xml`
+From repo root:
+
+```bash
+npm run dev --workspace @magistrat/taskpane -- --host 0.0.0.0 --mode smoke
+```
+
+Manual override path (without `.env.smoke.local`):
+
+```bash
+VITE_PUBLIC_ORIGIN=https://<tunnel-host> \
+VITE_ALLOWED_HOST=<tunnel-host> \
+VITE_HMR_HOST=<tunnel-host> \
+npm run dev --workspace @magistrat/taskpane -- --host 0.0.0.0
+```
 
 ## 4) Sideload Manifest
 
@@ -102,15 +105,15 @@ Expected `Session diagnostics` values by environment:
 
 ## 7) Troubleshooting
 
-- Stale manifest URL
-- Regenerate manifest when tunnel origin changes.
-- Re-upload manifest after regeneration.
+- Stale tunnel origin or env/manifest mismatch
+- Re-run `smoke:prepare` whenever tunnel origin changes.
+- Re-upload `manifest.local.xml` after regeneration.
 
 - Sideload blocked by tenant policy
 - Use approved organizational sideload process or admin-enabled testing tenant.
 
 - Tunnel mismatch / blank task pane
-- Ensure `VITE_PUBLIC_ORIGIN` and manifest origin match exactly.
+- Ensure `apps/taskpane/.env.smoke.local` and manifest origin match exactly.
 - Ensure `VITE_ALLOWED_HOST` includes the tunnel host.
 
 - HMR instability through tunnel
