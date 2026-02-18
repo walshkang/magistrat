@@ -24,14 +24,14 @@ Magistrat is a trust-first slide compiler that performs deterministic deck analy
 
 - `SIM` - Deterministic fixture-backed mode used for parity development and trust-loop validation.
 - `OFFICE_SHADOW` - Diagnostic host mode that reports capabilities explicitly and blocks unsupported actions.
-- `OFFICE_READONLY` - Desktop host mode with read enabled and patch apply intentionally policy-disabled for the bootstrap slice.
+- `OFFICE_READONLY` - Desktop host mode with read enabled and patch apply intentionally policy-disabled for the Office parity track.
 
 ## Manual Validation
 
-- Google Slides runbook (primary): `/Users/walsh.kang/Documents/GitHub/magistrat/docs/SLIDES_RUNBOOK.md`
-- Office smoke runbook (parity/diagnostic): `/Users/walsh.kang/Documents/GitHub/magistrat/docs/SMOKE_TEST_RUNBOOK.md`
-- Google-primary alignment plan: `/Users/walsh.kang/Documents/GitHub/magistrat/docs/GOOGLE_PRIMARY_ALIGNMENT_PLAN.md`
-- Google-primary drift checklist: `/Users/walsh.kang/Documents/GitHub/magistrat/docs/GOOGLE_PRIMARY_DRIFT_CHECKLIST.md`
+- Google Slides runbook (primary): `docs/SLIDES_RUNBOOK.md`
+- Office smoke runbook (parity/diagnostic): `docs/SMOKE_TEST_RUNBOOK.md`
+- Google-primary alignment plan: `docs/GOOGLE_PRIMARY_ALIGNMENT_PLAN.md`
+- Google-primary drift checklist: `docs/GOOGLE_PRIMARY_DRIFT_CHECKLIST.md`
 
 ## Packaging Notes
 
@@ -41,6 +41,7 @@ Magistrat is a trust-first slide compiler that performs deterministic deck analy
 ## Commands
 
 - `npm install`
+- `npm run gate:google-primary`
 - `npm run check`
 - `npm run test`
 - `npm run dev --workspace @magistrat/slides-addon`

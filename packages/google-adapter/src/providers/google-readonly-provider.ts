@@ -20,7 +20,7 @@ interface GoogleReadonlyProviderOptions {
 }
 
 const APPLY_REASON = "Patch application is disabled in GOOGLE_READONLY mode.";
-const SELECT_REASON = "Object selection is disabled in GOOGLE_READONLY mode for alpha.";
+const SELECT_REASON = "Object selection is disabled in GOOGLE_READONLY mode.";
 
 export function createGoogleReadonlyProvider(options: GoogleReadonlyProviderOptions): AdapterProvider {
   const runtimeStatus: AdapterRuntimeStatus = {

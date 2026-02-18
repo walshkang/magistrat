@@ -32,7 +32,7 @@ export function createSimProvider(options: SimProviderOptions): AdapterProvider 
     capabilities: {
       readDeckSnapshot: { supported: true },
       applyPatchOps: { supported: true },
-      selectObject: { supported: false, reasonCode: "POLICY_DISABLED", reason: "Select is disabled in Google alpha." }
+      selectObject: { supported: false, reasonCode: "POLICY_DISABLED", reason: "Object selection is disabled in Google SIM mode." }
     },
     capabilityRegistry: options.capabilityRegistry
   };
@@ -109,7 +109,7 @@ async function applyPatchOps(
 function assertSafeOperation(patch: PatchOp): void {
   if (!SAFE_OPS.has(patch.op)) {
     throw new Error(
-      `Patch op ${patch.op} is not apply-eligible in Google alpha. Only safe operations are supported.`
+      `Patch op ${patch.op} is not apply-eligible in Google v1 policy. Only safe operations are supported.`
     );
   }
 }

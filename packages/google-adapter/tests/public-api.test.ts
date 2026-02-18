@@ -39,6 +39,10 @@ describe("google adapter public api", () => {
     expect(status.hostCapabilities.bridgeAvailable).toBe(false);
     expect(status.capabilities.readDeckSnapshot.supported).toBe(true);
     expect(status.capabilities.applyPatchOps.supported).toBe(true);
+    expect(status.capabilityRegistry.policies.safeOpsOnly.reason).toBe(
+      "Google v1 policy restricts apply to safe operations."
+    );
+    expect(status.capabilities.selectObject.reason).toBe("Object selection is disabled in Google SIM mode.");
 
     const snapshot = await readDeckSnapshot();
     expect(snapshot.slides.length).toBeGreaterThan(0);
@@ -81,6 +85,7 @@ describe("google adapter public api", () => {
     expect(status.mode).toBe("GOOGLE_READONLY");
     expect(status.capabilities.readDeckSnapshot.supported).toBe(true);
     expect(status.capabilities.applyPatchOps.supported).toBe(false);
+    expect(status.capabilities.selectObject.reason).toBe("Object selection is disabled in GOOGLE_READONLY mode.");
 
     const snapshot = await readDeckSnapshot();
     expect(snapshot.slides[0]?.slideId).toBe("slide-1");

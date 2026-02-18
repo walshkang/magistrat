@@ -26,12 +26,12 @@ export function buildCapabilityRegistry(hostCapabilities: HostCapabilities): Ada
       livePatchApply: {
         supported: false,
         reasonCode: "POLICY_DISABLED",
-        reason: "Live patch apply is disabled in this bootstrap slice."
+        reason: "Live patch apply is disabled in the Office parity track."
       },
       bulletMetrics: {
         supported: false,
         reasonCode: "API_LIMITATION",
-        reason: "Office.js does not expose stable bullet indent/hanging metrics in this slice."
+        reason: "Office.js does not expose stable bullet indent/hanging metrics in the Office parity track."
       }
     }
   };
@@ -58,7 +58,7 @@ function resolveRequirementSet(hostCapabilities: HostCapabilities, minVersion: s
     return {
       supported: false,
       reasonCode: "PLATFORM_UNSUPPORTED",
-      reason: "PowerPoint on the web is not enabled for this bootstrap slice."
+      reason: "PowerPoint on the web is not enabled for the Office parity track."
     };
   }
 

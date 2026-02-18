@@ -28,7 +28,7 @@ const SAFE_OPS = new Set<PatchOp["op"]>([
   "DELETE_GHOST_OBJECT"
 ]);
 
-const SELECT_REASON = "Object selection is disabled in GOOGLE_SAFE mode for alpha.";
+const SELECT_REASON = "Object selection is disabled in GOOGLE_SAFE mode.";
 
 export function createGoogleSafeProvider(options: GoogleSafeProviderOptions): AdapterProvider {
   const runtimeStatus: AdapterRuntimeStatus = {
@@ -244,7 +244,7 @@ function createPartialApplyError(error: unknown, partialAppliedRecords?: PatchRe
 function assertSafeOperation(patch: PatchOp): void {
   if (!SAFE_OPS.has(patch.op)) {
     throw new Error(
-      `Patch op ${patch.op} is not apply-eligible in Google alpha. Only safe operations are supported.`
+      `Patch op ${patch.op} is not apply-eligible in Google v1 policy. Only safe operations are supported.`
     );
   }
 }

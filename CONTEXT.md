@@ -11,17 +11,17 @@
   - ratify + drift scaffolding
 
 ## Immediate Blocker
-- Repository started empty; baseline architecture, contracts, and docs had to be created from scratch.
+- Google-primary release gate is not yet fully codified in CI; stale policy copy and drift checks remain partially manual.
 
 ## Immediate Priorities (next 2 weeks)
-1. Stand up monorepo with locked shared contracts.
-2. Ship Google Slides sidebar shell with host diagnostics.
-3. Implement deterministic IR, role inference, and exemplar health.
-4. Introduce findings engine and safe/caution/manual patch planning.
-5. Establish test coverage for role inference, scoring, findings integrity, and patch policy.
-6. Harden Google adapter runtime path with revision-guarded apply and chunked execution.
-7. Add per-feature capability gates with explicit NOT_ANALYZED fallback reasons.
-8. Add Office parity verification scenarios for Windows (WebView2) and Mac (WebKit) host behavior differences.
+1. Codify Google-primary drift gate as a CI-blocking check.
+2. Remove stale alpha/bootstrap wording from user-facing policy copy.
+3. Keep runbook references portable (repo-relative) and aligned with canonical docs.
+4. Capture a dated gate-readiness snapshot with command outcomes and manual runbook status.
+5. Maintain deterministic `NOT_ANALYZED` and reconcile truthfulness while hardening release language.
+6. Keep Google safe-apply revision guard and chunking behavior stable under gate updates.
+7. Maintain Office parity diagnostics truth without enabling live patch apply.
+8. Start trust-loop UX depth planning after gate baseline is stable.
 
 ## Decisions Locked For v1
 - Google Slides sidebar primary target, with Office parity track maintained.

@@ -21,7 +21,7 @@ export function buildCapabilityRegistry(
     policies: {
       safeOpsOnly: {
         supported: true,
-        reason: "Google alpha restricts apply to safe operations."
+        reason: "Google v1 policy restricts apply to safe operations."
       },
       reconcileFidelityGate: {
         supported: true,
@@ -30,7 +30,7 @@ export function buildCapabilityRegistry(
       selectObject: {
         supported: false,
         reasonCode: "POLICY_DISABLED",
-        reason: "Object selection remains disabled in the Google alpha."
+        reason: "Object selection remains disabled in Google v1 policy."
       }
     }
   };

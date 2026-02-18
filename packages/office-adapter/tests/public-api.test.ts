@@ -82,6 +82,9 @@ describe("office adapter public api", () => {
     expect(status.mode).toBe("OFFICE_SHADOW");
     expect(status.capabilities.readDeckSnapshot.supported).toBe(false);
     expect(status.capabilities.readDeckSnapshot.reasonCode).toBe("PLATFORM_UNSUPPORTED");
+    expect(status.capabilities.readDeckSnapshot.reason).toBe(
+      "PowerPoint on the web is not enabled for the Office parity track."
+    );
   });
 
   it("uses OFFICE_SHADOW when desktop host lacks required PowerPointApi support", () => {
@@ -119,6 +122,12 @@ describe("office adapter public api", () => {
     expect(status.capabilities.readDeckSnapshot.supported).toBe(true);
     expect(status.capabilities.applyPatchOps.supported).toBe(false);
     expect(status.capabilities.applyPatchOps.reasonCode).toBe("POLICY_DISABLED");
+    expect(status.capabilities.applyPatchOps.reason).toBe(
+      "Patch application is disabled in OFFICE_READONLY mode for the Office parity track."
+    );
+    expect(status.capabilityRegistry.policies.livePatchApply.reason).toBe(
+      "Live patch apply is disabled in the Office parity track."
+    );
     expect(status.capabilityRegistry.requirementSets.powerPointApi_1_4.supported).toBe(true);
 
     const snapshot = await readDeckSnapshot();

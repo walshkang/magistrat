@@ -80,7 +80,7 @@ interface ShapeEntry {
 }
 
 const CHUNK_SIZE = 50;
-const APPLY_REASON = "Patch application is disabled in OFFICE_READONLY mode for this bootstrap slice.";
+const APPLY_REASON = "Patch application is disabled in OFFICE_READONLY mode for the Office parity track.";
 const SELECT_REASON = "Object selection is deferred in OFFICE_READONLY mode.";
 
 export function createOfficeReadonlyProvider(options: OfficeReadonlyProviderOptions): AdapterProvider {
