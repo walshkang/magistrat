@@ -211,14 +211,14 @@ export function App() {
   }, [analysisState?.findings, analysisState?.styleMap, documentState]);
 
   if (loading) {
-    return <main className="shell">Loading Magistrat Google Slides alpha...</main>;
+    return <main className="shell">Loading Magistrat Google Slides...</main>;
   }
 
   return (
     <main className="shell">
       <header className="header">
         <h1>Magistrat</h1>
-        <p>Trust-first Google Slides compiler workflow (private alpha).</p>
+        <p>Trust-first Google Slides compiler workflow.</p>
       </header>
 
       {runtimeStatus.mode === "GOOGLE_SHADOW" ? (

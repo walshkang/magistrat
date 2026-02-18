@@ -210,14 +210,14 @@ export function App() {
   }, [analysisState?.findings, analysisState?.styleMap, documentState]);
 
   if (loading) {
-    return <main className="shell">Loading Magistrat bootstrap...</main>;
+    return <main className="shell">Loading Magistrat Office parity shell...</main>;
   }
 
   return (
     <main className="shell">
       <header className="header">
         <h1>Magistrat</h1>
-        <p>Trust-first PowerPoint compiler workflow.</p>
+        <p>Trust-first PowerPoint parity workflow.</p>
       </header>
 
       {!hostCapabilities.desktopSupported ? (

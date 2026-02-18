@@ -4,20 +4,14 @@ Magistrat is a trust-first slide compiler that performs deterministic deck analy
 
 ## Workspaces
 
-- `apps/taskpane` - PowerPoint Office task-pane app shell.
-- `apps/slides-addon` - Google Slides sidebar alpha app shell.
+- `apps/slides-addon` - Google Slides sidebar app shell (primary v1 surface).
+- `apps/taskpane` - PowerPoint Office task-pane parity app shell.
 - `packages/shared-types` - Locked cross-package contracts.
 - `packages/compiler-core` - Deterministic analysis/check/planning logic.
-- `packages/office-adapter` - Office host abstraction and document-state persistence.
-- `packages/google-adapter` - Google Slides host abstraction with safe-only alpha apply policy.
+- `packages/google-adapter` - Google Slides host abstraction with safe-only apply policy.
+- `packages/office-adapter` - Office host abstraction for parity validation and document-state persistence.
 
 ## Runtime Modes
-
-### Office Adapter
-
-- `SIM` - Deterministic fixture-backed mode used for bootstrap development and trust-loop validation.
-- `OFFICE_SHADOW` - Diagnostic host mode that reports capabilities explicitly and blocks unsupported actions.
-- `OFFICE_READONLY` - Desktop host mode with read enabled and patch apply intentionally policy-disabled for the bootstrap slice.
 
 ### Google Adapter
 
@@ -26,10 +20,18 @@ Magistrat is a trust-first slide compiler that performs deterministic deck analy
 - `GOOGLE_READONLY` - Bridge mode with read enabled and apply disabled.
 - `GOOGLE_SAFE` - Bridge mode with read enabled and safe-op-only apply enabled under revision guard.
 
+### Office Adapter (Parity Track)
+
+- `SIM` - Deterministic fixture-backed mode used for parity development and trust-loop validation.
+- `OFFICE_SHADOW` - Diagnostic host mode that reports capabilities explicitly and blocks unsupported actions.
+- `OFFICE_READONLY` - Desktop host mode with read enabled and patch apply intentionally policy-disabled for the bootstrap slice.
+
 ## Manual Validation
 
-- Office smoke runbook: `/Users/walsh.kang/Documents/GitHub/magistrat/docs/SMOKE_TEST_RUNBOOK.md`
-- Google Slides alpha runbook: `/Users/walsh.kang/Documents/GitHub/magistrat/docs/SLIDES_ALPHA_RUNBOOK.md`
+- Google Slides runbook (primary): `/Users/walsh.kang/Documents/GitHub/magistrat/docs/SLIDES_RUNBOOK.md`
+- Office smoke runbook (parity/diagnostic): `/Users/walsh.kang/Documents/GitHub/magistrat/docs/SMOKE_TEST_RUNBOOK.md`
+- Google-primary alignment plan: `/Users/walsh.kang/Documents/GitHub/magistrat/docs/GOOGLE_PRIMARY_ALIGNMENT_PLAN.md`
+- Google-primary drift checklist: `/Users/walsh.kang/Documents/GitHub/magistrat/docs/GOOGLE_PRIMARY_DRIFT_CHECKLIST.md`
 
 ## Packaging Notes
 
@@ -41,5 +43,5 @@ Magistrat is a trust-first slide compiler that performs deterministic deck analy
 - `npm install`
 - `npm run check`
 - `npm run test`
-- `npm run dev --workspace @magistrat/taskpane`
 - `npm run dev --workspace @magistrat/slides-addon`
+- `npm run dev --workspace @magistrat/taskpane`

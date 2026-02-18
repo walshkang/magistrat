@@ -37,11 +37,11 @@ Before proposing or writing code:
 - All patches are typed, logged, and reversible.
 
 5. Reconciliation truthfulness:
-- Patch log state must reconcile with native PowerPoint undo/redo reality.
+- Patch log state must reconcile with host-native undo/redo reality.
 - Never show stale or misleading apply state.
 
 ## 3) Surface Model + UX Guardrails
-- Single task-pane as v1 host UI.
+- Single host surface as v1 UI (Google Slides sidebar primary; Office task-pane parity track).
 - Calm copy: precise, non-hyped, compiler-language-first.
 - Mandatory visibility:
   - findings evidence

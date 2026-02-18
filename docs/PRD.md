@@ -1,16 +1,16 @@
 # Magistrat — Product Requirements Document (PRD)
 
-* **Status:** Draft (Source of truth v0.4)
+* **Status:** Draft (Source of truth v0.5 — Google pivot)
 * **Owner:** Walsh
-* **Date:** 2026-02-17
+* **Date:** 2026-02-18
 * **Product type:** **Slide compiler** (not a slide chatbot)
-* **Primary platform:** **PowerPoint task-pane add-in** (Office.js)
+* **Primary platform:** **Google Slides Sidebar Add-on** (Apps Script + HTML service)
 
 ---
 
 ## 0) One-liner
 
-**Magistrat compiles PowerPoint decks into brand-perfect output** by inferring the *intended roles* of slide elements (title/subtitle/body/bullets/etc) from an **exemplar slide**, linting against an editable **Best Practices Playbook**, detecting drift with evidence, proposing reversible fixes, and guiding teams through **Clean up → Review changes → Ratify** inside PowerPoint during authoring.
+**Magistrat compiles Google Slides decks into brand-perfect output** by inferring the *intended roles* of slide elements (title/subtitle/body/bullets/etc) from an **exemplar slide**, linting against an editable **Best Practices Playbook**, detecting drift with evidence, proposing reversible fixes, and guiding teams through **Clean up → Review changes → Ratify** inside the Google Slides sidebar during authoring.
 
 ---
 
@@ -29,7 +29,7 @@
 
 * **Wedge use case:** Slide reuse + last-mile cleanup + consistency across Frankenstein decks.
 * **Differentiator:** Deterministic + evidence-backed + reversible (compiler-like), not “AI magic.”
-* **Winning frame:** *Lint + formatter + reference checker for PowerPoint.*
+* **Winning frame:** *Lint + formatter + reference checker for Google Slides.*
 
 ### Exemplar-first style source of truth (locked)
 
@@ -93,8 +93,8 @@
 
 ### Native Undo/Redo interoperability (new, locked)
 
-* Magistrat does not rely on PowerPoint’s undo stack **but must be undo-aware**.
-* If the user undoes/redoes changes (native), Magistrat must reconcile its patch log and never misrepresent reality.
+* Magistrat does not rely on host undo stacks **but must remain undo-aware**.
+* If the user undoes/redoes changes natively, Magistrat must reconcile its patch log and never misrepresent reality.
 
 ### Ratify semantics are tolerant (locked)
 
@@ -108,15 +108,19 @@
 
 * v1 targets a narrow “trust loop”: exemplar → checks → reversible fixes → ratify → drift detection.
 * Team rollout is additive (no blocking gates).
-* Manifest strategy for bootstrap: XML add-in manifest first for widest Windows/Mac desktop compatibility.
-* Unified manifest migration is a future step tied to explicit Copilot/Teams scope, not a v1 blocker.
+* Google Slides sidebar is the primary v1 surface for the trust loop.
+* PowerPoint remains an additive parity track and must not relax trust invariants.
 
-### Google Slides private alpha expansion (2026-02-18)
+### PowerPoint parity track (2026-02-18)
 
-* PowerPoint task-pane remains the locked v1 primary platform.
-* A parallel Google Slides private-alpha track is approved to validate the same trust loop for web-native users.
-* Google alpha follows strict safeguards: in-document state persistence, safe-op-only bulk apply, explicit `NOT_ANALYZED`, and revision-guarded reconcile truthfulness.
-* Google track is additive and must not relax locked PowerPoint v1 invariants.
+* Office task-pane support remains active for parity validation and enterprise compatibility testing.
+* Parity track follows the same safeguards: in-document state persistence, safe-op-only bulk apply, explicit `NOT_ANALYZED`, and revision-guarded reconcile truthfulness.
+* Parity track does not block Google-first v1 milestone decisions.
+
+### Documentation migration note (2026-02-18)
+
+* Google runbook canonical path: `/Users/walsh.kang/Documents/GitHub/magistrat/docs/SLIDES_RUNBOOK.md`
+* Backward-compatible alias retained: `/Users/walsh.kang/Documents/GitHub/magistrat/docs/SLIDES_ALPHA_RUNBOOK.md`
 
 ---
 
@@ -242,13 +246,14 @@ Consulting teams reuse slides constantly. Masters are often unusable. Teams stil
 
 ### UI surfaces (v1)
 
-* **Single PowerPoint task pane**:
+* **Single Google Slides sidebar** with Swiss Monitor density:
 
-  1. Exemplar picker + Exemplar Health + normalization
-  2. Findings list + filters + coverage meter
-  3. Patch log + revert + reconciliation states
-  4. Ratify status + drift + continuity summary
-* No on-slide overlays in v1 (only select/jump + task-pane preview markers).
+  1. **HUD (top):** health ring, current anchor, and primary action (`Fix safe` or `Ratify style`)
+  2. **Linter stream (middle):** grouped findings with observed vs expected diff rows in monospace values
+  3. **Patch + ratify surface (bottom/tab):** typed patch log, reconciliation state, revert controls, ratify summary
+  4. **Foundry (phase 2 tab):** exemplar/library-backed smart snippet insertions via deterministic clone ops
+* No on-slide overlays in v1 (only select/jump + task-pane preview markers, plus temporary host selection highlight when available).
+* No chatbot interaction pattern in v1; user input is structured controls, not prompts.
 
 ### Language and copy (locked)
 
@@ -260,19 +265,19 @@ Consulting teams reuse slides constantly. Masters are often unusable. Teams stil
 
 ## 7) Compiler model (how Magistrat works)
 
-### Host integration (PowerPoint add-in)
+### Host integration (Google Slides-first, parity-capable)
 
 * Reads shapes/text runs/layout attributes from the live presentation.
 * Applies changes via typed patch operations.
 * Tracks stable object references best-effort; if a target cannot be resolved, patch is skipped and flagged.
-* Office.js execution model is explicit: queue operations and minimize `context.sync()` round trips.
-* Never perform `context.sync()` inside per-object loops; batch reads/writes and sync once per chunk.
+* Google-first execution model uses deterministic `presentations.get` reads + atomic `presentations.batchUpdate` writes.
+* PowerPoint parity implementation remains supported under the same deterministic read/write and reconcile contract.
 
 ### Runtime capability gating (v1)
 
 * Every host operation is guarded by feature/requirement-set checks before execution.
 * Unsupported feature paths degrade to explicit findings with `NOT_ANALYZED` + reason code (never silent fallback).
-* Capability model must be stable across Windows desktop (WebView2) and Mac desktop (WebKit), with deterministic behavior under partial API support.
+* Capability model must be stable across Google bridge modes and Office parity modes, with deterministic behavior under partial API support.
 
 ### Inputs
 
@@ -355,7 +360,7 @@ For each text-containing shape:
 
 **Native Undo/Redo interoperability (required):**
 
-* Magistrat remains correct even if the user uses PowerPoint Undo/Redo.
+* Magistrat remains correct even if the user uses native host Undo/Redo.
 * Each patch has a reconciliation state:
 
   * **Applied** (matches expected after)
@@ -470,8 +475,8 @@ Otherwise: suggest-only or Manual.
 * Progressive scanning by scope
 * Cache IR per slide where possible
 * Avoid full-deck rescans unless requested
-* Batch Office.js reads/writes with correlated-object patterns to reduce process-bridge chatter.
-* Chunk large deck operations (target batch size 50–100 objects), yielding between chunks to keep task-pane UI responsive.
+* Batch host bridge reads/writes to reduce process-bridge chatter (`presentations.get` + `batchUpdate` on Google).
+* Chunk large deck operations (target batch size 50–100 objects), yielding between chunks to keep sidebar/task-pane UI responsive.
 * Avoid loading broad object graphs by default; load only required properties.
 
 ### Reliability
@@ -503,7 +508,7 @@ Otherwise: suggest-only or Manual.
 
 ## 13) Competitive posture (Copilot / Gemini / Claude)
 
-* Magistrat = trust-first compiler inside PPT, not content generator.
+* Magistrat = trust-first compiler inside slide authoring hosts, not content generator.
 * Differentiation = exemplar-first intent anchoring + reversible patches + continuity checks + coverage transparency.
 
 ---
@@ -521,7 +526,7 @@ Otherwise: suggest-only or Manual.
 1. Exemplar picker + Exemplar Health + Normalized Exemplar (virtual)
 2. Role inference + core typographic checks + safe patch ops + patch log
 3. Coverage meter + not-analyzed surfacing + capability gating
-4. Office.js batching/chunking runtime path for large decks
+4. Google `batchUpdate`/chunking runtime path for large decks (+ Office parity path)
 5. Undo/Redo reconciliation states
 6. Continuity engine v1
 7. Ratify + drift semantics

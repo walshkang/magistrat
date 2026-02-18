@@ -1,13 +1,15 @@
-# Magistrat Smoke Test Runbook
+# Magistrat Office Parity Smoke Runbook
 
-This runbook defines the canonical manual validation workflow for sideloading `@magistrat/taskpane` and verifying host-mode diagnostics truthfulness.
+This runbook defines manual validation for sideloading `@magistrat/taskpane` and verifying Office parity diagnostics truthfulness.
 
 ## Scope
 
-- Desktop-first validation is required.
+- Office host validation is a parity and diagnostics track.
+- Desktop validation is required for parity confidence.
 - PowerPoint web validation is diagnostic-only.
 - Product runtime behavior is not changed by this runbook.
-- Google Slides private-alpha validation lives in `/Users/walsh.kang/Documents/GitHub/magistrat/docs/SLIDES_ALPHA_RUNBOOK.md`.
+- Google Slides primary-host validation lives in `/Users/walsh.kang/Documents/GitHub/magistrat/docs/SLIDES_RUNBOOK.md`.
+- Positioning drift checks are documented in `/Users/walsh.kang/Documents/GitHub/magistrat/docs/GOOGLE_PRIMARY_DRIFT_CHECKLIST.md`.
 
 ## Prerequisites
 
