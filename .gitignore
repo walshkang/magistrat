@@ -4,3 +4,4 @@ coverage
 .DS_Store
 *.log
 .vscode
+apps/taskpane/manifest.local.xml

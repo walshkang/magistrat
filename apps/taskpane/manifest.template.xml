@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<OfficeApp
+  xmlns="http://schemas.microsoft.com/office/appforoffice/1.1"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:type="TaskPaneApp"
+>
+  <Id>__ADDIN_ID__</Id>
+  <Version>1.0.0.0</Version>
+  <ProviderName>Magistrat</ProviderName>
+  <DefaultLocale>en-US</DefaultLocale>
+  <DisplayName DefaultValue="__ADDIN_NAME__" />
+  <Description DefaultValue="Magistrat local task-pane validation manifest." />
+  <IconUrl DefaultValue="https://appsforoffice.microsoft.com/favicon.ico" />
+  <HighResolutionIconUrl DefaultValue="https://appsforoffice.microsoft.com/favicon.ico" />
+  <SupportUrl DefaultValue="https://github.com" />
+
+  <AppDomains>
+    <AppDomain>__TASKPANE_ORIGIN__</AppDomain>
+  </AppDomains>
+
+  <Hosts>
+    <Host Name="Presentation" />
+  </Hosts>
+
+  <DefaultSettings>
+    <SourceLocation DefaultValue="__TASKPANE_ORIGIN__/index.html" />
+  </DefaultSettings>
+
+  <Permissions>ReadWriteDocument</Permissions>
+</OfficeApp>

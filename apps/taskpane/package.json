@@ -8,6 +8,7 @@
     "check": "npm run lint && npm run typecheck && npm run test",
     "dev": "vite",
     "lint": "eslint \"src/**/*.{ts,tsx}\"",
+    "manifest:local": "tsx scripts/materialize-manifest.ts",
     "test": "vitest run --passWithNoTests",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },

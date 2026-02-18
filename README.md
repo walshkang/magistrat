@@ -13,6 +13,14 @@ Magistrat is a trust-first PowerPoint compiler add-in that performs deterministi
 
 - `SIM` - Deterministic fixture-backed mode used for bootstrap development and trust-loop validation.
 - `OFFICE_SHADOW` - Diagnostic host mode that reports capabilities explicitly and blocks unsupported actions.
+- `OFFICE_READONLY` - Desktop host mode with read enabled and patch apply intentionally policy-disabled for the bootstrap slice.
+
+## Manual Smoke Validation
+
+- Runbook: `/Users/walsh.kang/Documents/GitHub/magistrat/docs/SMOKE_TEST_RUNBOOK.md`
+- Manifest template: `/Users/walsh.kang/Documents/GitHub/magistrat/apps/taskpane/manifest.template.xml`
+- Generate local manifest:
+  - `npm run manifest:local --workspace @magistrat/taskpane -- --origin https://<your-tunnel-host>`
 
 ## Packaging Notes
 
