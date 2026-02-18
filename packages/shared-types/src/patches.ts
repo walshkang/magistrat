@@ -41,12 +41,22 @@ export interface PatchOp {
   validations?: Array<"no_overflow_after_change" | "no_reflow_material_change" | "target_precondition_matches">;
 }
 
+export interface ReconcileSignature {
+  fontFamily: string | null;
+  fontSizePt: number | null;
+  fontColor: string | null;
+  bold: boolean | null;
+  italic: boolean | null;
+  bulletIndent: number | null;
+  bulletHanging: number | null;
+}
+
 export interface PatchRecord {
   id: string;
   findingId: string;
   targetFingerprint: TargetFingerprint;
-  before: Record<string, unknown>;
-  after: Record<string, unknown>;
+  before: ReconcileSignature;
+  after: ReconcileSignature;
   reconcileState: ReconcileState;
   appliedAtIso: string;
 }

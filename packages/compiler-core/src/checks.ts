@@ -9,6 +9,7 @@ import type {
   RoleStyleTokens,
   StyleMap
 } from "@magistrat/shared-types";
+import { ROLE_CONFIDENCE_MIN } from "./constants.js";
 import { stableHash } from "./hash.js";
 
 export interface RunChecksResult {
@@ -21,15 +22,28 @@ export function runChecks(deck: DeckSnapshot, styleMap: StyleMap): RunChecksResu
   const findings: Finding[] = [];
   const suggestedPatches: PatchOp[] = [];
 
-  let analyzedObjects = 0;
-  const totalObjects = deck.slides.reduce((acc, slide) => acc + slide.shapes.length, 0);
+  const analyzedObjects = new Set<string>();
+  const analyzedSlides = new Set<string>();
+  const notAnalyzedObjects = new Set<string>();
   const unhandledTypes = new Map<string, number>();
+
+  const pushFinding = (finding: Finding): void => {
+    findings.push(finding);
+    if (finding.coverage === "NOT_ANALYZED" && finding.objectId) {
+      notAnalyzedObjects.add(objectKey(finding.slideId, finding.objectId));
+    }
+  };
+
+  const markAnalyzed = (slideId: string, objectId: string): void => {
+    analyzedObjects.add(objectKey(slideId, objectId));
+    analyzedSlides.add(slideId);
+  };
 
   for (const slide of deck.slides) {
     for (const shape of slide.shapes) {
       if (!shape.supportedForAnalysis) {
         unhandledTypes.set(shape.shapeType, (unhandledTypes.get(shape.shapeType) ?? 0) + 1);
-        findings.push(
+        pushFinding(
           createNotAnalyzedFinding(
             slide.slideId,
             shape.objectId,
@@ -40,15 +54,22 @@ export function runChecks(deck: DeckSnapshot, styleMap: StyleMap): RunChecksResu
         continue;
       }
 
+      markAnalyzed(slide.slideId, shape.objectId);
+
+      for (const finding of evaluateObjectHygiene(slide.slideId, shape.objectId, shape)) {
+        pushFinding(finding);
+      }
+
       const role = shape.inferredRole ?? "UNKNOWN";
       const roleScore = shape.inferredRoleScore ?? 0;
-      if (role === "UNKNOWN" || roleScore < 0.9) {
-        findings.push(
+
+      if (role === "UNKNOWN" || roleScore < ROLE_CONFIDENCE_MIN.manual) {
+        pushFinding(
           createNotAnalyzedFinding(
             slide.slideId,
             shape.objectId,
             "LOW_ROLE_CONFIDENCE",
-            "Role confidence was below safe threshold."
+            "Role confidence was below manual threshold for role-specific checks."
           )
         );
         continue;
@@ -56,7 +77,7 @@ export function runChecks(deck: DeckSnapshot, styleMap: StyleMap): RunChecksResu
 
       const expected = styleMap[role];
       if (!expected) {
-        findings.push(
+        pushFinding(
           createNotAnalyzedFinding(
             slide.slideId,
             shape.objectId,
@@ -67,10 +88,21 @@ export function runChecks(deck: DeckSnapshot, styleMap: StyleMap): RunChecksResu
         continue;
       }
 
-      analyzedObjects += 1;
+      if (roleScore < ROLE_CONFIDENCE_MIN.safe) {
+        pushFinding(
+          createNotAnalyzedFinding(
+            slide.slideId,
+            shape.objectId,
+            "LOW_ROLE_CONFIDENCE",
+            "Role confidence was below safe/caution thresholds for style-map checks."
+          )
+        );
+        continue;
+      }
+
       const run = shape.textRuns[0];
       if (!run) {
-        findings.push(
+        pushFinding(
           createNotAnalyzedFinding(
             slide.slideId,
             shape.objectId,
@@ -93,86 +125,27 @@ export function runChecks(deck: DeckSnapshot, styleMap: StyleMap): RunChecksResu
         bulletHanging: shape.paragraphs[0]?.bulletHanging
       });
 
-      findings.push(...mismatchFindings.findings);
+      for (const finding of mismatchFindings.findings) {
+        pushFinding(finding);
+      }
+
       suggestedPatches.push(...mismatchFindings.patches);
-
-      const textContent = shape.textRuns.map((textRun) => textRun.text).join(" ").toLowerCase();
-      if (textContent.includes("click to add") || textContent.includes("lorem ipsum")) {
-        const findingId = `finding-${stableHash([slide.slideId, shape.objectId, "placeholder"])}`;
-        findings.push({
-          id: findingId,
-          ruleId: "BP-HYGIENE-004",
-          source: "playbook",
-          slideId: slide.slideId,
-          objectId: shape.objectId,
-          role,
-          observed: { textContent },
-          expected: { pattern: "no_placeholder_text" },
-          evidence: [
-            evidence("PLAYBOOK_EVIDENCE", "Placeholder text pattern matched."),
-            evidence("HYGIENE_EVIDENCE", "Text contains placeholder token.")
-          ],
-          confidence: 0.99,
-          risk: "manual",
-          severity: "error",
-          coverage: "ANALYZED"
-        });
-      }
-
-      const isGhost =
-        !shape.visible &&
-        shape.geometry.width * shape.geometry.height > 200 &&
-        shape.zIndex > 0 &&
-        shape.textRuns.every((textRun) => textRun.fontAlpha === 0);
-
-      if (isGhost) {
-        const findingId = `finding-${stableHash([slide.slideId, shape.objectId, "ghost"])}`;
-        const patchId = `patch-${stableHash([findingId, "delete_ghost"])}`;
-        findings.push({
-          id: findingId,
-          ruleId: "BP-HYGIENE-001",
-          source: "playbook",
-          slideId: slide.slideId,
-          objectId: shape.objectId,
-          role,
-          observed: { visible: shape.visible, zIndex: shape.zIndex },
-          expected: { noGhostObjects: true },
-          evidence: [
-            evidence("PLAYBOOK_EVIDENCE", "Ghost object rule matched strict invisibility profile."),
-            evidence("HYGIENE_EVIDENCE", "Invisible object overlaps active content plane.")
-          ],
-          confidence: 0.92,
-          risk: "safe",
-          severity: "warn",
-          coverage: "ANALYZED",
-          suggestedPatchId: patchId
-        });
-
-        suggestedPatches.push({
-          id: patchId,
-          op: "DELETE_GHOST_OBJECT",
-          target: {
-            slideId: slide.slideId,
-            objectId: shape.objectId,
-            preconditionHash: stableHash({ shape })
-          },
-          fields: { delete: true },
-          risk: "safe"
-        });
-      }
     }
   }
 
+  const totalObjects = deck.slides.reduce((acc, slide) => acc + slide.shapes.length, 0);
   const coverage: CoverageSnapshot = {
-    analyzedSlides: deck.slides.length,
+    analyzedSlides: analyzedSlides.size,
     totalSlides: deck.slides.length,
-    analyzedObjects,
+    analyzedObjects: analyzedObjects.size,
+    notAnalyzedObjects: notAnalyzedObjects.size,
     totalObjects,
     topUnhandledObjectTypes: [...unhandledTypes.entries()]
       .sort((a, b) => b[1] - a[1])
       .slice(0, 3)
       .map(([type]) => type),
-    continuityCoverage: deck.slides.length > 0 ? 1 : 0
+    continuityStatus: "NOT_RUN",
+    continuityCoverage: 0
   };
 
   return {
@@ -180,6 +153,72 @@ export function runChecks(deck: DeckSnapshot, styleMap: StyleMap): RunChecksResu
     coverage,
     suggestedPatches
   };
+}
+
+function evaluateObjectHygiene(
+  slideId: string,
+  objectId: string,
+  shape: DeckSnapshot["slides"][number]["shapes"][number]
+): Finding[] {
+  const findings: Finding[] = [];
+  const role = shape.inferredRole ?? "UNKNOWN";
+  const roleScore = shape.inferredRoleScore ?? ROLE_CONFIDENCE_MIN.manual;
+
+  const textContent = shape.textRuns.map((textRun) => textRun.text).join(" ").toLowerCase();
+  if (textContent.includes("click to add") || textContent.includes("lorem ipsum")) {
+    const findingId = `finding-${stableHash([slideId, objectId, "placeholder"])}`;
+    findings.push({
+      id: findingId,
+      ruleId: "BP-HYGIENE-004",
+      source: "playbook",
+      slideId,
+      objectId,
+      role,
+      observed: { textContent },
+      expected: { pattern: "no_placeholder_text" },
+      evidence: [
+        evidence("PLAYBOOK_EVIDENCE", "Placeholder text pattern matched."),
+        evidence("HYGIENE_EVIDENCE", "Text contains placeholder token.")
+      ],
+      confidence: roleScore,
+      risk: "manual",
+      severity: "error",
+      coverage: "ANALYZED"
+    });
+  }
+
+  const isPotentialGhost =
+    !shape.visible &&
+    shape.geometry.width * shape.geometry.height > 200 &&
+    shape.zIndex > 0 &&
+    shape.textRuns.every((textRun) => textRun.fontAlpha === 0);
+
+  if (isPotentialGhost) {
+    const findingId = `finding-${stableHash([slideId, objectId, "ghost_manual"])}`;
+    findings.push({
+      id: findingId,
+      ruleId: "BP-HYGIENE-001",
+      source: "playbook",
+      slideId,
+      objectId,
+      role,
+      observed: { visible: shape.visible, zIndex: shape.zIndex },
+      expected: { noGhostObjects: true },
+      evidence: [
+        evidence("PLAYBOOK_EVIDENCE", "Potential ghost profile matched."),
+        evidence(
+          "HYGIENE_EVIDENCE",
+          "Deletion remains manual until strict overlap and render-plane evidence is available."
+        )
+      ],
+      confidence: roleScore,
+      risk: "manual",
+      severity: "warn",
+      coverage: "ANALYZED"
+    });
+  }
+
+  return findings;
 }
 
 function createNotAnalyzedFinding(
@@ -461,4 +500,8 @@ function evaluateTypographyAndStructure(input: EvaluateInput): {
     findings,
     patches
   };
+}
+
+function objectKey(slideId: string, objectId: string): string {
+  return `${slideId}:${objectId}`;
 }

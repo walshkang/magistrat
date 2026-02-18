@@ -6,7 +6,7 @@
 3. `docs/UX_RULES.md` + `docs/VIBE_PLAYBOOK.md`
 4. Other docs in `/docs`
 
-If a rule conflicts with `/Users/walsh.kang/Downloads/magistrat-prd-v3.md` or `/Users/walsh.kang/Downloads/magistrat-bestpracticesplaybook-v1.md`, the PRD and playbook win for product behavior.
+If a rule conflicts with `docs/PRD.md` or `docs/BEST_PRACTICES_PLAYBOOK.md`, the PRD and playbook win for product behavior.
 
 ## 1) Startup Protocol (must run before coding)
 Before proposing or writing code:

@@ -8,7 +8,7 @@ export interface BuildStyleMapResult {
 
 export function buildStyleMap(
   exemplarSlide: SlideSnapshot,
-  mode: "original" | "normalized"
+  mode: "original" | "token_normalized"
 ): BuildStyleMapResult {
   const inferred = inferRoles({
     deckId: "exemplar-only",
@@ -45,8 +45,8 @@ export function buildStyleMap(
       bulletHanging: shape.paragraphs[0]?.bulletHanging
     };
 
-    styleMap[role] = mode === "normalized" ? normalizeTokens(baseTokens) : baseTokens;
-    if (mode === "normalized") {
+    styleMap[role] = mode === "token_normalized" ? normalizeTokens(baseTokens) : baseTokens;
+    if (mode === "token_normalized") {
       normalizedTokens += 1;
     }
   }

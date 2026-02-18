@@ -17,24 +17,37 @@ export type StyleMap = Partial<Record<RoleV1, RoleStyleTokens>>;
 
 export interface ExemplarSelection {
   slideId: string;
-  mode: "original" | "normalized";
+  mode: "original" | "token_normalized";
   normalizationAppliedToSlide: boolean;
   selectedAtIso: string;
+}
+
+export interface RatifyBasisSummary {
+  exemplarSlideId: string;
+  exemplarMode: ExemplarSelection["mode"];
+  roleCount: number;
+  tokenCount: number;
+  ruleIds: string[];
 }
 
 export interface RatifyStamp {
   scope: "deck" | "slide_selection";
   styleSignatureHash: string;
+  basisSummary: RatifyBasisSummary;
   ratifiedAtIso: string;
   notes?: string;
 }
+
+export type ContinuityStatus = "NOT_RUN" | "RAN";
 
 export interface CoverageSnapshot {
   analyzedSlides: number;
   totalSlides: number;
   analyzedObjects: number;
+  notAnalyzedObjects: number;
   totalObjects: number;
   topUnhandledObjectTypes: string[];
+  continuityStatus: ContinuityStatus;
   continuityCoverage: number;
 }
 

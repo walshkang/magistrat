@@ -5,4 +5,5 @@ export { scoreExemplarHealth } from "./exemplar-health.js";
 export { planPatches } from "./patch-planner.js";
 export { reconcilePatches } from "./reconcile.js";
 export { inferRoles } from "./role-inference.js";
+export { buildStyleSignature } from "./style-signature.js";
 export { buildStyleMap } from "./style-map.js";

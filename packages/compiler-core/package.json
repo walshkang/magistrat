@@ -5,6 +5,12 @@
   "type": "module",
   "main": "src/public-api.ts",
   "types": "src/public-api.ts",
+  "exports": {
+    ".": {
+      "types": "./src/public-api.ts",
+      "default": "./src/public-api.ts"
+    }
+  },
   "dependencies": {
     "@magistrat/shared-types": "0.1.0"
   },
