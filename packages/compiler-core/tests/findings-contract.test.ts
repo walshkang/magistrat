@@ -75,8 +75,8 @@ describe("runChecks findings contract", () => {
     const notAnalyzed = result.findings.find((finding) => finding.coverage === "NOT_ANALYZED");
     expect(notAnalyzed).toBeDefined();
     expect(notAnalyzed?.notAnalyzedReason).toBeDefined();
-    expect(result.coverage.continuityStatus).toBe("NOT_RUN");
-    expect(result.coverage.continuityCoverage).toBe(0);
+    expect(result.coverage.continuityStatus).toBe("RAN");
+    expect(result.coverage.continuityCoverage).toBe(1);
     expect(result.coverage.analyzedSlides).toBe(2);
     expect(result.coverage.analyzedObjects).toBe(2);
     expect(result.coverage.notAnalyzedObjects).toBeGreaterThan(0);

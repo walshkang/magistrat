@@ -9,6 +9,7 @@ import type {
   RoleStyleTokens,
   StyleMap
 } from "@magistrat/shared-types";
+import { runContinuityChecks } from "./continuity.js";
 import { ROLE_CONFIDENCE_MIN } from "./constants.js";
 import { stableHash } from "./hash.js";
 
@@ -164,6 +165,11 @@ export function runChecks(deck: DeckSnapshot, styleMap: StyleMap): RunChecksResu
     }
   }
 
+  const continuityResult = runContinuityChecks(deck);
+  for (const finding of continuityResult.findings) {
+    pushFinding(finding);
+  }
+
   const totalObjects = deck.slides.reduce((acc, slide) => acc + slide.shapes.length, 0);
   const coverage: CoverageSnapshot = {
     analyzedSlides: analyzedSlides.size,
@@ -175,8 +181,8 @@ export function runChecks(deck: DeckSnapshot, styleMap: StyleMap): RunChecksResu
       .sort((a, b) => b[1] - a[1])
       .slice(0, 3)
       .map(([type]) => type),
-    continuityStatus: "NOT_RUN",
-    continuityCoverage: 0
+    continuityStatus: continuityResult.continuityStatus,
+    continuityCoverage: continuityResult.continuityCoverage
   };
 
   return {
