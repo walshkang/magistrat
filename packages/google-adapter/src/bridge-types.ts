@@ -88,6 +88,7 @@ export interface GoogleSlidesBridge {
   getHostInfo?(): GoogleHostInfo;
   getCapabilities?(): GoogleBridgeCapabilities;
   readPresentation(): Promise<GoogleBridgePresentation>;
+  // SAFE mode may invoke this multiple times per apply request when chunking writes.
   applyMutations?(mutations: BridgeMutation[], options: { requiredRevisionId?: string }): Promise<BridgeApplyResult>;
   getDocumentCarrier?(): Promise<string>;
   setDocumentCarrier?(content: string): Promise<void>;

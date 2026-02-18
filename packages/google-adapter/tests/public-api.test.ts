@@ -7,6 +7,7 @@ import type {
 } from "@magistrat/shared-types";
 import {
   applyPatchOps,
+  getPartialAppliedRecords,
   getRuntimeStatus,
   loadDocumentState,
   readDeckSnapshot,
@@ -151,6 +152,55 @@ describe("google adapter public api", () => {
     ).rejects.toThrow("revision mismatch");
   });
 
+  it("chunks apply calls with revision progression and deterministic mutation ordering", async () => {
+    const bridge = createMutableBridge(createBasePresentation());
+    setGoogleSlidesBridgeForTests(bridge.api);
+
+    const patches = createSafeColorPatches(160);
+    const result = await applyPatchOps(patches);
+    const applyCalls = bridge.getApplyCalls();
+
+    expect(result).toHaveLength(160);
+    expect(applyCalls.map((call) => call.patchIds.length)).toEqual([75, 75, 10]);
+    expect(applyCalls.map((call) => call.requiredRevisionId)).toEqual(["r1", "r2", "r3"]);
+    expect(applyCalls.flatMap((call) => call.patchIds)).toEqual(patches.map((patch) => patch.id));
+  });
+
+  it("refreshes revision guard from readPresentation when apply result omits revision id", async () => {
+    const bridge = createMutableBridge(createBasePresentation(), {
+      omitResultRevisionId: true
+    });
+    setGoogleSlidesBridgeForTests(bridge.api);
+
+    await applyPatchOps(createSafeColorPatches(160));
+    const applyCalls = bridge.getApplyCalls();
+
+    expect(applyCalls.map((call) => call.requiredRevisionId)).toEqual(["r1", "r2", "r3"]);
+  });
+
+  it("exposes partial applied records when a later chunk fails", async () => {
+    const bridge = createMutableBridge(createBasePresentation(), {
+      forceRevisionMismatchAtCall: 3
+    });
+    setGoogleSlidesBridgeForTests(bridge.api);
+
+    const patches = createSafeColorPatches(160);
+    let capturedError: unknown;
+
+    try {
+      await applyPatchOps(patches);
+    } catch (error) {
+      capturedError = error;
+    }
+
+    expect(capturedError).toBeInstanceOf(Error);
+    expect((capturedError as Error).message).toContain("revision mismatch");
+
+    const partialApplied = getPartialAppliedRecords(capturedError);
+    expect(partialApplied).toHaveLength(150);
+    expect(partialApplied.map((record) => record.id)).toEqual(patches.slice(0, 150).map((patch) => patch.id));
+  });
+
   it("supports reconcile transitions based on refreshed snapshots", async () => {
     const bridge = createMutableBridge(createBasePresentation());
     setGoogleSlidesBridgeForTests(bridge.api);
@@ -222,6 +272,23 @@ function createPatch(input: {
   };
 }
 
+function createSafeColorPatches(count: number): PatchOp[] {
+  return Array.from({ length: count }, (_, index) =>
+    createPatch({
+      id: `patch-bulk-${index + 1}`,
+      op: "SET_FONT_COLOR",
+      target: {
+        slideId: "slide-1",
+        objectId: "shape-title",
+        preconditionHash: `h-bulk-${index + 1}`
+      },
+      fields: {
+        fontColor: `#${(index % 256).toString(16).padStart(2, "0")}2244`
+      }
+    })
+  );
+}
+
 function createBasePresentation(): GoogleBridgePresentation {
   return {
     documentId: "google-doc-1",
@@ -282,10 +349,13 @@ function createMutableBridge(
   options?: {
     applyPatchOps?: boolean;
     forceRevisionMismatch?: boolean;
+    forceRevisionMismatchAtCall?: number;
+    omitResultRevisionId?: boolean;
   }
 ): {
   api: GoogleSlidesBridge;
   carrier: string;
+  getApplyCalls: () => Array<{ requiredRevisionId?: string; patchIds: string[] }>;
   mutateShape: (
     slideId: string,
     objectId: string,
@@ -296,7 +366,9 @@ function createMutableBridge(
   const state = {
     presentation: clone(initialPresentation),
     revisionCounter: 1,
-    carrier: ""
+    carrier: "",
+    applyCallCount: 0,
+    applyCalls: [] as Array<{ requiredRevisionId?: string; patchIds: string[] }>
   };
 
   const api: GoogleSlidesBridge = {
@@ -318,7 +390,18 @@ function createMutableBridge(
       };
     },
     applyMutations: async (mutations: BridgeMutation[], applyOptions: { requiredRevisionId?: string }) => {
+      state.applyCallCount += 1;
+      state.applyCalls.push({
+        ...(typeof applyOptions.requiredRevisionId === "string"
+          ? { requiredRevisionId: applyOptions.requiredRevisionId }
+          : {}),
+        patchIds: mutations.map((mutation) => mutation.patchId)
+      });
+
       if (options?.forceRevisionMismatch) {
+        throw new Error("revision mismatch");
+      }
+      if (options?.forceRevisionMismatchAtCall === state.applyCallCount) {
         throw new Error("revision mismatch");
       }
 
@@ -332,6 +415,9 @@ function createMutableBridge(
       }
 
       state.revisionCounter += 1;
+      if (options?.omitResultRevisionId) {
+        return {};
+      }
       return { revisionId: `r${state.revisionCounter}` };
     },
     getDocumentCarrier: async () => state.carrier,
@@ -348,6 +434,7 @@ function createMutableBridge(
     set carrier(content: string) {
       state.carrier = content;
     },
+    getApplyCalls: () => [...state.applyCalls],
     mutateShape: (slideId, objectId, mutator) => {
       const shape = findShape(state.presentation, slideId, objectId);
       if (shape) {

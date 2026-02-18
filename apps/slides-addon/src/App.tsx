@@ -11,6 +11,7 @@ import {
 import {
   applyPatchOps,
   getDocumentId,
+  getPartialAppliedRecords,
   getRuntimeStatus,
   loadDocumentState,
   readDeckSnapshot,
@@ -179,6 +180,53 @@ export function App() {
       setAnalysisState(refreshed.analysis);
       setMessage(`Applied ${applied.length} safe patches and reconciled ${reconciledPatchLog.length} patch records.`);
     } catch (error: unknown) {
+      const partialApplied = getPartialAppliedRecords(error);
+      if (partialApplied.length > 0) {
+        try {
+          const refreshedDeck = await readDeckSnapshot();
+          const refreshed = analyzeDeckSnapshot(refreshedDeck, selectedExemplarSlideId, exemplarMode);
+
+          const patchLog = [...documentState.patchLog, ...partialApplied];
+          const reconcileResults = reconcilePatches(patchLog, refreshedDeck);
+          const reconcileMap = new Map(reconcileResults.map((result) => [result.patch.id, result.nextState]));
+          const reconciledPatchLog = patchLog.map((patch) => ({
+            ...patch,
+            reconcileState: reconcileMap.get(patch.id) ?? patch.reconcileState
+          }));
+
+          const nextState: DocumentStateV1 = {
+            ...documentState,
+            exemplar: {
+              slideId: refreshed.exemplarSlideId,
+              mode: exemplarMode,
+              normalizationAppliedToSlide: false,
+              selectedAtIso: documentState.exemplar?.selectedAtIso ?? new Date().toISOString()
+            },
+            styleMap: refreshed.analysis.styleMap,
+            findings: refreshed.analysis.findings,
+            coverage: refreshed.analysis.coverage,
+            patchLog: reconciledPatchLog,
+            lastUpdatedIso: new Date().toISOString()
+          };
+
+          await saveDocumentState(nextState);
+          setDeck(refreshedDeck);
+          setDocumentState(nextState);
+          setAnalysisState(refreshed.analysis);
+          setMessage(
+            `${error instanceof Error ? error.message : "Apply safe failed."} Recovered partial progress: reconciled ${partialApplied.length} applied patch records.`
+          );
+          return;
+        } catch (recoveryError: unknown) {
+          setMessage(
+            `${error instanceof Error ? error.message : "Apply safe failed."} Partial progress was detected, but refresh failed: ${
+              recoveryError instanceof Error ? recoveryError.message : "unknown error"
+            }`
+          );
+          return;
+        }
+      }
+
       setMessage(error instanceof Error ? error.message : "Apply safe failed.");
     }
   }, [analysisState, applyPatchCapability.reason, applyPatchCapability.supported, deck, documentState, exemplarMode, selectedExemplarSlideId]);

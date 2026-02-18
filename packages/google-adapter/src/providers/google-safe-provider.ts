@@ -18,6 +18,8 @@ interface GoogleSafeProviderOptions {
   applyPatchOpsCapability: AdapterCapability;
 }
 
+const GOOGLE_SAFE_CHUNK_SIZE = 75;
+
 const SAFE_OPS = new Set<PatchOp["op"]>([
   "SET_FONT_FAMILY",
   "SET_FONT_COLOR",
@@ -98,27 +100,70 @@ async function applyPatchOps(bridge: GoogleSlidesBridge, patchOps: PatchOp[]): P
     pendingPatchesById.set(patch.id, patch);
   }
 
-  if (pendingMutations.length > 0) {
-    try {
-      const mutationOptions =
-        typeof presentationBefore.revisionId === "string"
-          ? { requiredRevisionId: presentationBefore.revisionId }
-          : {};
+  if (pendingMutations.length === 0) {
+    return records;
+  }
 
-      await bridge.applyMutations(pendingMutations, mutationOptions);
+  let requiredRevisionId =
+    typeof presentationBefore.revisionId === "string" ? presentationBefore.revisionId : undefined;
+  const successfulMutations: BridgeMutation[] = [];
+  const mutationChunks = chunkMutations(pendingMutations, GOOGLE_SAFE_CHUNK_SIZE);
+
+  for (const [chunkIndex, chunk] of mutationChunks.entries()) {
+    try {
+      const mutationOptions = requiredRevisionId ? { requiredRevisionId } : {};
+      const applyResult = await bridge.applyMutations(chunk, mutationOptions);
+      successfulMutations.push(...chunk);
+      requiredRevisionId = await resolveRequiredRevisionId(bridge, applyResult.revisionId, requiredRevisionId);
     } catch (error) {
+      if (successfulMutations.length > 0) {
+        try {
+          const deckAfterPartial = mapPresentationToDeckSnapshot(await bridge.readPresentation());
+          const partialAppliedRecords = buildPatchRecords(
+            successfulMutations,
+            pendingPatchesById,
+            deckBefore,
+            deckAfterPartial,
+            appliedAtIso
+          );
+          throw createPartialApplyError(error, partialAppliedRecords);
+        } catch (snapshotError) {
+          if (snapshotError instanceof Error && "partialAppliedRecords" in snapshotError) {
+            throw snapshotError;
+          }
+          throw createPartialApplyError(error);
+        }
+      }
+
       if (isRevisionMismatchError(error)) {
         throw new Error("Patch apply failed due to revision mismatch. Re-run clean up and retry.");
       }
 
       throw error;
     }
+
+    if (chunkIndex < mutationChunks.length - 1) {
+      await yieldToEventLoop();
+    }
   }
 
   const deckAfter = mapPresentationToDeckSnapshot(await bridge.readPresentation());
+  records.push(...buildPatchRecords(pendingMutations, pendingPatchesById, deckBefore, deckAfter, appliedAtIso));
 
-  for (const mutation of pendingMutations) {
-    const patch = pendingPatchesById.get(mutation.patchId);
+  return records;
+}
+
+function buildPatchRecords(
+  mutations: BridgeMutation[],
+  patchesById: Map<string, PatchOp>,
+  deckBefore: DeckSnapshot,
+  deckAfter: DeckSnapshot,
+  appliedAtIso: string
+): PatchRecord[] {
+  const records: PatchRecord[] = [];
+
+  for (const mutation of mutations) {
+    const patch = patchesById.get(mutation.patchId);
     if (!patch) {
       continue;
     }
@@ -131,9 +176,10 @@ async function applyPatchOps(bridge: GoogleSlidesBridge, patchOps: PatchOp[]): P
       findingId: `finding-for-${patch.id}`,
       targetFingerprint: patch.target,
       before: buildReconcileSignatureFromShape(beforeShape),
-      after: patch.op === "DELETE_GHOST_OBJECT" && !afterShape
-        ? emptySignature()
-        : buildReconcileSignatureFromShape(afterShape),
+      after:
+        patch.op === "DELETE_GHOST_OBJECT" && !afterShape
+          ? emptySignature()
+          : buildReconcileSignatureFromShape(afterShape),
       reconcileState:
         patch.op === "DELETE_GHOST_OBJECT" && !afterShape
           ? "applied"
@@ -145,6 +191,54 @@ async function applyPatchOps(bridge: GoogleSlidesBridge, patchOps: PatchOp[]): P
   }
 
   return records;
+}
+
+function chunkMutations(mutations: BridgeMutation[], chunkSize: number): BridgeMutation[][] {
+  const chunks: BridgeMutation[][] = [];
+  for (let index = 0; index < mutations.length; index += chunkSize) {
+    chunks.push(mutations.slice(index, index + chunkSize));
+  }
+  return chunks;
+}
+
+async function resolveRequiredRevisionId(
+  bridge: GoogleSlidesBridge,
+  applyResultRevisionId: string | undefined,
+  currentRevisionId: string | undefined
+): Promise<string | undefined> {
+  if (typeof applyResultRevisionId === "string") {
+    return applyResultRevisionId;
+  }
+
+  const refreshedPresentation = await bridge.readPresentation();
+  if (typeof refreshedPresentation.revisionId === "string") {
+    return refreshedPresentation.revisionId;
+  }
+
+  return currentRevisionId;
+}
+
+async function yieldToEventLoop(): Promise<void> {
+  await new Promise<void>((resolve) => {
+    setTimeout(resolve, 0);
+  });
+}
+
+function createPartialApplyError(error: unknown, partialAppliedRecords?: PatchRecord[]): Error {
+  const baseMessage = isRevisionMismatchError(error)
+    ? "Patch apply failed due to revision mismatch."
+    : `Patch apply failed: ${error instanceof Error ? error.message : "unknown error"}.`;
+  const errorWithPartialRecords = new Error(
+    partialAppliedRecords
+      ? `${baseMessage} Some safe patches were applied before interruption. Re-run clean up and review patch log.`
+      : baseMessage
+  ) as Error & { partialAppliedRecords?: PatchRecord[]; cause?: unknown };
+
+  if (partialAppliedRecords) {
+    errorWithPartialRecords.partialAppliedRecords = partialAppliedRecords;
+  }
+  errorWithPartialRecords.cause = error;
+  return errorWithPartialRecords;
 }
 
 function assertSafeOperation(patch: PatchOp): void {
