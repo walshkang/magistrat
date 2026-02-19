@@ -1,0 +1,91 @@
+- main [ref=e3]:
+  - generic [ref=e4]:
+    - heading "Magistrat" [level=1] [ref=e5]
+    - paragraph [ref=e6]: Trust-first Google Slides compiler workflow.
+  - generic [ref=e7]:
+    - heading "Session diagnostics" [level=2] [ref=e8]
+    - generic [ref=e9]:
+      - generic [ref=e10]: Runtime mode
+      - strong [ref=e11]: GOOGLE_SAFE
+      - generic [ref=e12]: Host
+      - strong [ref=e13]: google_slides
+      - generic [ref=e14]: Platform
+      - strong [ref=e15]: web
+      - generic [ref=e16]: Bridge available
+      - strong [ref=e17]: "yes"
+      - generic [ref=e18]: Add-on context
+      - strong [ref=e19]: "yes"
+      - generic [ref=e20]: Read deck
+      - strong [ref=e21]: "yes"
+      - generic [ref=e22]: Apply patches
+      - strong [ref=e23]: "yes"
+      - generic [ref=e24]: Document id
+      - strong [ref=e25]: google-host-doc-1
+      - generic [ref=e26]: Schema version
+      - strong [ref=e27]: "1"
+      - generic [ref=e28]: Last updated
+      - strong [ref=e29]: 2026-02-19T01:38:08.875Z
+  - generic [ref=e30]:
+    - heading "Exemplar setup" [level=2] [ref=e31]
+    - generic [ref=e32]:
+      - generic [ref=e33]:
+        - text: Exemplar slide
+        - combobox "Exemplar slide" [ref=e34]:
+          - option "1. Agenda" [selected]
+          - option "2. slide-2"
+          - option "3. Overview"
+      - generic [ref=e35]:
+        - text: Style map mode
+        - combobox "Style map mode" [ref=e36]:
+          - option "Use Original Exemplar"
+          - option "Use Normalized Exemplar (token-only preview)" [selected]
+      - button "Run clean up" [active] [ref=e37] [cursor=pointer]
+  - generic [ref=e38]:
+    - heading "Coverage meter" [level=2] [ref=e39]
+    - generic [ref=e40]:
+      - generic [ref=e41]: Analyzed slides
+      - strong [ref=e42]: 3/3
+      - generic [ref=e43]: Analyzed objects
+      - strong [ref=e44]: 4/5
+      - generic [ref=e45]: Not analyzed objects
+      - strong [ref=e46]: "2"
+      - generic [ref=e47]: Unhandled object types
+      - strong [ref=e48]: TABLE
+      - generic [ref=e49]: Continuity status
+      - strong [ref=e50]: RAN
+      - generic [ref=e51]: Continuity coverage
+      - strong [ref=e52]: 100%
+      - generic [ref=e53]: Exemplar health
+      - strong [ref=e54]: 80/100
+  - generic [ref=e55]:
+    - heading "Findings" [level=2] [ref=e56]
+    - paragraph [ref=e57]: 8 total findings.
+    - list [ref=e58]:
+      - listitem [ref=e59]:
+        - strong [ref=e60]: BP-COVERAGE-001
+        - text: "[info/manual] on slide-1:shape-table-unsupported (NOT_ANALYZED:UNSUPPORTED_OBJECT_TYPE)"
+      - listitem [ref=e61]:
+        - strong [ref=e62]: BP-COVERAGE-001
+        - text: "[info/manual] on slide-2:shape-body-2 (NOT_ANALYZED:MISSING_STYLEMAP_ROLE)"
+      - listitem [ref=e63]:
+        - strong [ref=e64]: BP-TYPO-001
+        - text: "[error/safe] on slide-3:shape-title-3"
+      - listitem [ref=e65]:
+        - strong [ref=e66]: BP-COLOR-001
+        - text: "[warn/safe] on slide-3:shape-title-3"
+      - listitem [ref=e67]:
+        - strong [ref=e68]: BP-TYPO-002
+        - text: "[warn/safe] on slide-3:shape-title-3"
+      - listitem [ref=e69]:
+        - strong [ref=e70]: BP-TYPO-003
+        - text: "[warn/caution] on slide-3:shape-title-3"
+      - listitem [ref=e71]:
+        - strong [ref=e72]: BP-CONT-001
+        - text: "[warn/manual] on slide-2"
+      - listitem [ref=e73]:
+        - strong [ref=e74]: BP-CONT-002
+        - text: "[warn/manual] on slide-1"
+    - generic [ref=e75]:
+      - button "Apply safe (3)" [ref=e76] [cursor=pointer]
+      - button "Ratify style" [ref=e77] [cursor=pointer]
+  - generic [ref=e78]: "Scan complete: 8 findings."

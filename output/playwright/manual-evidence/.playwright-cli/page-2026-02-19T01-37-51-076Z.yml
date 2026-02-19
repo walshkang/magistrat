@@ -1,0 +1,42 @@
+- main [ref=e3]:
+  - generic [ref=e4]:
+    - heading "Magistrat" [level=1] [ref=e5]
+    - paragraph [ref=e6]: Trust-first Google Slides compiler workflow.
+  - generic [ref=e7]:
+    - heading "Session diagnostics" [level=2] [ref=e8]
+    - generic [ref=e9]:
+      - generic [ref=e10]: Runtime mode
+      - strong [ref=e11]: GOOGLE_SAFE
+      - generic [ref=e12]: Host
+      - strong [ref=e13]: google_slides
+      - generic [ref=e14]: Platform
+      - strong [ref=e15]: web
+      - generic [ref=e16]: Bridge available
+      - strong [ref=e17]: "yes"
+      - generic [ref=e18]: Add-on context
+      - strong [ref=e19]: "yes"
+      - generic [ref=e20]: Read deck
+      - strong [ref=e21]: "yes"
+      - generic [ref=e22]: Apply patches
+      - strong [ref=e23]: "yes"
+      - generic [ref=e24]: Document id
+      - strong [ref=e25]: google-host-doc-1
+      - generic [ref=e26]: Schema version
+      - strong [ref=e27]: "1"
+      - generic [ref=e28]: Last updated
+      - strong [ref=e29]: 2026-02-19T01:37:50.984Z
+  - generic [ref=e30]:
+    - heading "Exemplar setup" [level=2] [ref=e31]
+    - generic [ref=e32]:
+      - generic [ref=e33]:
+        - text: Exemplar slide
+        - combobox "Exemplar slide" [ref=e34]:
+          - option "1. Agenda" [selected]
+          - option "2. slide-2"
+          - option "3. Overview"
+      - generic [ref=e35]:
+        - text: Style map mode
+        - combobox "Style map mode" [ref=e36]:
+          - option "Use Original Exemplar"
+          - option "Use Normalized Exemplar (token-only preview)" [selected]
+      - button "Run clean up" [ref=e37] [cursor=pointer]
