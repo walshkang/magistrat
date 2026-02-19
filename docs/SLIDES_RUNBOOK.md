@@ -9,8 +9,8 @@ This runbook defines canonical manual validation for the Google Slides sidebar s
 - Google Slides is the primary v1 host path.
 - Trust loop validation in sidebar UI: exemplar -> findings -> apply safe -> reconcile -> ratify.
 - No shared backend; state is persisted in a document-owned hidden marker payload.
-- Office parity validation is documented in `/Users/walsh.kang/Documents/GitHub/magistrat/docs/SMOKE_TEST_RUNBOOK.md`.
-- Positioning drift checks are documented in `/Users/walsh.kang/Documents/GitHub/magistrat/docs/GOOGLE_PRIMARY_DRIFT_CHECKLIST.md`.
+- Office parity validation is documented in `docs/SMOKE_TEST_RUNBOOK.md`.
+- Positioning drift checks are documented in `docs/GOOGLE_PRIMARY_DRIFT_CHECKLIST.md`.
 
 ## Prerequisites
 

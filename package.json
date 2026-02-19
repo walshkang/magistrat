@@ -11,6 +11,7 @@
     "check": "npm run --workspaces --if-present check",
     "gate:google-primary": "tsx scripts/gate-google-primary.ts",
     "lint": "npm run --workspaces --if-present lint",
+    "test:gate-google-primary": "node --import tsx --test scripts/gate-google-primary.test.ts",
     "test": "npm run --workspaces --if-present test",
     "typecheck": "npm run --workspaces --if-present typecheck"
   },

@@ -8,8 +8,8 @@ This runbook defines manual validation for sideloading `@magistrat/taskpane` and
 - Desktop validation is required for parity confidence.
 - PowerPoint web validation is diagnostic-only.
 - Product runtime behavior is not changed by this runbook.
-- Google Slides primary-host validation lives in `/Users/walsh.kang/Documents/GitHub/magistrat/docs/SLIDES_RUNBOOK.md`.
-- Positioning drift checks are documented in `/Users/walsh.kang/Documents/GitHub/magistrat/docs/GOOGLE_PRIMARY_DRIFT_CHECKLIST.md`.
+- Google Slides primary-host validation lives in `docs/SLIDES_RUNBOOK.md`.
+- Positioning drift checks are documented in `docs/GOOGLE_PRIMARY_DRIFT_CHECKLIST.md`.
 
 ## Prerequisites
 

@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 
 interface MustNotAppearCheck {
   phrase: string;
@@ -10,10 +11,6 @@ interface MustAppearCheck {
   file: string;
   requiredPhrases: string[];
 }
-
-const repoRoot = process.cwd();
-const errors: string[] = [];
-const cache = new Map<string, string>();
 
 const mustNotAppearChecks: MustNotAppearCheck[] = [
   {
@@ -58,55 +55,119 @@ const mustAppearChecks: MustAppearCheck[] = [
   }
 ];
 
-for (const check of mustNotAppearChecks) {
-  for (const file of check.files) {
+const portabilityFiles = [
+  "README.md",
+  "AGENTS.md",
+  "CONTEXT.md",
+  "docs/PRD.md",
+  "docs/SLIDES_RUNBOOK.md",
+  "docs/SMOKE_TEST_RUNBOOK.md",
+  "docs/SLIDES_ALPHA_RUNBOOK.md",
+  "docs/GOOGLE_PRIMARY_DRIFT_CHECKLIST.md"
+];
+
+const machineHomePathMarkers = ["/Users/", "/home/", "C:\\Users\\"];
+
+export function evaluateGooglePrimaryGate(readFile: (file: string) => string | undefined): string[] {
+  const errors: string[] = [];
+
+  for (const check of mustNotAppearChecks) {
+    for (const file of check.files) {
+      const content = readFile(file);
+      if (!content) {
+        continue;
+      }
+
+      if (content.includes(check.phrase)) {
+        errors.push(`[must-not-appear] "${check.phrase}" found in ${file}`);
+      }
+    }
+  }
+
+  for (const check of mustAppearChecks) {
+    const content = readFile(check.file);
+    if (!content) {
+      continue;
+    }
+
+    for (const phrase of check.requiredPhrases) {
+      if (!content.includes(phrase)) {
+        errors.push(`[must-appear] "${phrase}" missing from ${check.file}`);
+      }
+    }
+  }
+
+  for (const file of portabilityFiles) {
     const content = readFile(file);
     if (!content) {
       continue;
     }
 
-    if (content.includes(check.phrase)) {
-      errors.push(`[must-not-appear] "${check.phrase}" found in ${file}`);
+    for (const marker of machineHomePathMarkers) {
+      if (content.includes(marker)) {
+        errors.push(`[portability] "${marker}" found in ${file}`);
+      }
     }
   }
+
+  return errors;
 }
 
-for (const check of mustAppearChecks) {
-  const content = readFile(check.file);
-  if (!content) {
-    continue;
-  }
+export function runGooglePrimaryGate(repoRoot = process.cwd()): number {
+  const { readFile, readErrors } = createRepoFileReader(repoRoot);
+  const errors = [...evaluateGooglePrimaryGate(readFile), ...readErrors];
 
-  for (const phrase of check.requiredPhrases) {
-    if (!content.includes(phrase)) {
-      errors.push(`[must-appear] "${phrase}" missing from ${check.file}`);
+  if (errors.length > 0) {
+    console.error("Google-primary gate failed.");
+    for (const error of errors) {
+      console.error(`- ${error}`);
     }
+    return 1;
   }
+
+  console.log("Google-primary gate passed.");
+  console.log(
+    `Checked ${mustNotAppearChecks.length} stale-phrase rules, ${mustAppearChecks.length} anchor files, and ${portabilityFiles.length} portability files.`
+  );
+  return 0;
 }
 
-if (errors.length > 0) {
-  console.error("Google-primary gate failed.");
-  for (const error of errors) {
-    console.error(`- ${error}`);
-  }
-  process.exit(1);
+function createRepoFileReader(repoRoot: string): {
+  readFile: (file: string) => string | undefined;
+  readErrors: string[];
+} {
+  const cache = new Map<string, string | undefined>();
+  const readErrors: string[] = [];
+
+  const readFile = (file: string): string | undefined => {
+    if (cache.has(file)) {
+      return cache.get(file);
+    }
+
+    try {
+      const content = readFileSync(resolve(repoRoot, file), "utf8");
+      cache.set(file, content);
+      return content;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "unknown error";
+      readErrors.push(`[read] ${file}: ${message}`);
+      cache.set(file, undefined);
+      return undefined;
+    }
+  };
+
+  return { readFile, readErrors };
 }
 
-console.log("Google-primary gate passed.");
-console.log(`Checked ${mustNotAppearChecks.length} stale-phrase rules and ${mustAppearChecks.length} anchor files.`);
-
-function readFile(file: string): string | undefined {
-  if (cache.has(file)) {
-    return cache.get(file);
+function isDirectExecution(): boolean {
+  const entry = process.argv[1];
+  if (!entry) {
+    return false;
   }
 
-  try {
-    const content = readFileSync(resolve(repoRoot, file), "utf8");
-    cache.set(file, content);
-    return content;
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "unknown error";
-    errors.push(`[read] ${file}: ${message}`);
-    return undefined;
-  }
+  return import.meta.url === pathToFileURL(resolve(entry)).href;
+}
+
+if (isDirectExecution()) {
+  process.exit(runGooglePrimaryGate());
 }

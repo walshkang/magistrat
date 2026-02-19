@@ -119,8 +119,8 @@
 
 ### Documentation migration note (2026-02-18)
 
-* Google runbook canonical path: `/Users/walsh.kang/Documents/GitHub/magistrat/docs/SLIDES_RUNBOOK.md`
-* Backward-compatible alias retained: `/Users/walsh.kang/Documents/GitHub/magistrat/docs/SLIDES_ALPHA_RUNBOOK.md`
+* Google runbook canonical path: `docs/SLIDES_RUNBOOK.md`
+* Backward-compatible alias retained: `docs/SLIDES_ALPHA_RUNBOOK.md`
 
 ---
 

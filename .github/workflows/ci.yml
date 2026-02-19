@@ -15,6 +15,7 @@ jobs:
           node-version: "22"
           cache: npm
       - run: npm ci
+      - run: npm run test:gate-google-primary
       - run: npm run gate:google-primary
       - run: npm run check
       - run: npm run test

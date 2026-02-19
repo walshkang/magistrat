@@ -11,17 +11,16 @@
   - ratify + drift scaffolding
 
 ## Immediate Blocker
-- Google-primary release gate is not yet fully codified in CI; stale policy copy and drift checks remain partially manual.
+- Fresh manual host-validation evidence is missing; automated gate readiness is green but Google/Office runbook execution status is still session-manual.
 
 ## Immediate Priorities (next 2 weeks)
-1. Codify Google-primary drift gate as a CI-blocking check.
-2. Remove stale alpha/bootstrap wording from user-facing policy copy.
-3. Keep runbook references portable (repo-relative) and aligned with canonical docs.
-4. Capture a dated gate-readiness snapshot with command outcomes and manual runbook status.
-5. Maintain deterministic `NOT_ANALYZED` and reconcile truthfulness while hardening release language.
-6. Keep Google safe-apply revision guard and chunking behavior stable under gate updates.
-7. Maintain Office parity diagnostics truth without enabling live patch apply.
-8. Start trust-loop UX depth planning after gate baseline is stable.
+1. Keep a dated gate-readiness snapshot cadence with command outcomes and explicit manual runbook status.
+2. Capture manual Google (`docs/SLIDES_RUNBOOK.md`) and Office parity (`docs/SMOKE_TEST_RUNBOOK.md`) runbook evidence in a host-capable environment.
+3. Start decision-complete trust-loop UX depth planning after manual gate evidence is current.
+4. Maintain deterministic `NOT_ANALYZED` and reconcile truthfulness while hardening release language.
+5. Keep Google safe-apply revision guard and chunking behavior stable under gate maintenance.
+6. Maintain Office parity diagnostics truth without enabling live patch apply.
+7. Keep Google-primary drift checks (copy, runbook links, portability markers) current as docs evolve.
 
 ## Decisions Locked For v1
 - Google Slides sidebar primary target, with Office parity track maintained.

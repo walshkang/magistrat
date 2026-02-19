@@ -35,6 +35,14 @@ rg -n "NOT_ANALYZED|reversible|reconcile|no on-slide overlays|no floating overla
 rg -n "SLIDES_RUNBOOK|SMOKE_TEST_RUNBOOK|GOOGLE_PRIMARY_ALIGNMENT_PLAN|GOOGLE_PRIMARY_DRIFT_CHECKLIST" README.md docs
 ```
 
-## 5) Gate Readiness Snapshot
+## 5) Portability Drift (informational)
+- Confirm docs and governance files do not include machine-specific home paths.
+- Command:
+
+```bash
+rg -n "/(Users|home)/|C:\\\\Users\\\\" docs README.md AGENTS.md CONTEXT.md
+```
+
+## 6) Gate Readiness Snapshot
 - Run Google runbook canonical checks and Office parity smoke checks.
 - Record date, commit, and pass/fail summary in release notes or changelog notes.
