@@ -105,13 +105,19 @@ export function App() {
   }, [readDeckCapability.reason, readDeckCapability.supported]);
 
   const runCleanup = useCallback(async () => {
-    if (!deck || !documentState) {
+    if (!documentState) {
       setMessage("Deck snapshot is not available in current runtime mode.");
       return;
     }
 
     try {
-      const result = analyzeDeckSnapshot(deck, selectedExemplarSlideId, exemplarMode);
+      const latestDeck = readDeckCapability.supported ? await readDeckSnapshot() : deck;
+      if (!latestDeck) {
+        setMessage("Deck snapshot is not available in current runtime mode.");
+        return;
+      }
+
+      const result = analyzeDeckSnapshot(latestDeck, selectedExemplarSlideId, exemplarMode);
       const nextState: DocumentStateV1 = {
         ...documentState,
         exemplar: {
@@ -127,6 +133,7 @@ export function App() {
       };
 
       await saveDocumentState(nextState);
+      setDeck(latestDeck);
       setDocumentState(nextState);
       setAnalysisState(result.analysis);
       setSelectedExemplarSlideId(result.exemplarSlideId);
@@ -134,7 +141,7 @@ export function App() {
     } catch (error: unknown) {
       setMessage(error instanceof Error ? error.message : "Run clean up failed.");
     }
-  }, [deck, documentState, exemplarMode, selectedExemplarSlideId]);
+  }, [deck, documentState, exemplarMode, readDeckCapability.supported, selectedExemplarSlideId]);
 
   const applySafe = useCallback(async () => {
     if (!analysisState || !documentState || !deck) {
@@ -233,29 +240,34 @@ export function App() {
 
   const ratify = useCallback(async () => {
     if (!documentState) {
+      setMessage("Document state is unavailable; run clean up first.");
       return;
     }
 
-    const findings = analysisState?.findings ?? documentState.findings;
-    const styleMap = analysisState?.styleMap ?? documentState.styleMap;
-    const signature = buildStyleSignature(documentState.exemplar, styleMap, findings);
+    try {
+      const findings = analysisState?.findings ?? documentState.findings;
+      const styleMap = analysisState?.styleMap ?? documentState.styleMap;
+      const signature = buildStyleSignature(documentState.exemplar, styleMap, findings);
 
-    const nextState: DocumentStateV1 = {
-      ...documentState,
-      ratify: {
-        scope: "deck",
-        styleSignatureHash: signature.styleSignatureHash,
-        basisSummary: signature.basisSummary,
-        ratifiedAtIso: new Date().toISOString()
-      },
-      lastUpdatedIso: new Date().toISOString()
-    };
+      const nextState: DocumentStateV1 = {
+        ...documentState,
+        ratify: {
+          scope: "deck",
+          styleSignatureHash: signature.styleSignatureHash,
+          basisSummary: signature.basisSummary,
+          ratifiedAtIso: new Date().toISOString()
+        },
+        lastUpdatedIso: new Date().toISOString()
+      };
 
-    await saveDocumentState(nextState);
-    setDocumentState(nextState);
-    setMessage(
-      `Style ratified. Basis: roles=${signature.basisSummary.roleCount}, tokens=${signature.basisSummary.tokenCount}, rules=${signature.basisSummary.ruleIds.length}.`
-    );
+      await saveDocumentState(nextState);
+      setDocumentState(nextState);
+      setMessage(
+        `Style ratified. Basis: roles=${signature.basisSummary.roleCount}, tokens=${signature.basisSummary.tokenCount}, rules=${signature.basisSummary.ruleIds.length}.`
+      );
+    } catch (error: unknown) {
+      setMessage(`Ratify failed: ${error instanceof Error ? error.message : "unknown error"}`);
+    }
   }, [analysisState?.findings, analysisState?.styleMap, documentState]);
 
   if (loading) {
