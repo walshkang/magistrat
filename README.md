@@ -30,6 +30,7 @@ Magistrat is a trust-first slide compiler that performs deterministic deck analy
 
 - Google Slides runbook (primary): `docs/SLIDES_RUNBOOK.md`
 - Office smoke runbook (parity/diagnostic): `docs/SMOKE_TEST_RUNBOOK.md`
+- Cloudflare bootstrap command for Office smoke: `./scripts/bootstrap-cloudflare-smoke.sh`
 - Google-primary alignment plan: `docs/GOOGLE_PRIMARY_ALIGNMENT_PLAN.md`
 - Google-primary drift checklist: `docs/GOOGLE_PRIMARY_DRIFT_CHECKLIST.md`
 
@@ -46,3 +47,4 @@ Magistrat is a trust-first slide compiler that performs deterministic deck analy
 - `npm run test`
 - `npm run dev --workspace @magistrat/slides-addon`
 - `npm run dev --workspace @magistrat/taskpane`
+- `./scripts/bootstrap-cloudflare-smoke.sh`

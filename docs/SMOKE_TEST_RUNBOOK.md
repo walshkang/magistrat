@@ -22,6 +22,29 @@ npm install
 - PowerPoint account/tenant that allows sideloading add-ins.
 - One HTTPS tunnel option installed and authenticated (`ngrok` or `cloudflared`).
 
+## 0) Quick Bootstrap (Recommended)
+
+From repo root:
+
+```bash
+./scripts/bootstrap-cloudflare-smoke.sh
+```
+
+What this does:
+
+1. Starts a `cloudflared` tunnel to local taskpane port `3010` and captures the HTTPS origin.
+2. Runs `smoke:prepare` with that origin to generate:
+- `apps/taskpane/.env.smoke.local`
+- `apps/taskpane/manifest.local.xml`
+3. Starts the taskpane dev server in smoke mode.
+
+Useful options:
+
+```bash
+./scripts/bootstrap-cloudflare-smoke.sh --help
+./scripts/bootstrap-cloudflare-smoke.sh --origin https://<existing-origin>
+```
+
 ## 1) Start HTTPS Tunnel
 
 Use one of:
