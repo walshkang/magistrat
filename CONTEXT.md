@@ -11,7 +11,7 @@
   - ratify + drift scaffolding
 
 ## Immediate Blocker
-- Fresh strict live-host evidence is incomplete; automated gate readiness is green, but remaining rows are: Google diagnostics truthfulness, Google unsupported coverage (`NOT_ANALYZED:UNSUPPORTED_OBJECT_TYPE`), Google continuity findings (`BP-CONT-001`, `BP-CONT-002`), Google safe-only apply, Google reconcile states (`applied`, `reverted_externally`, `drifted`, `missing_target`), Google persistence rehydrate, Office web diagnostics (`OFFICE_SHADOW`), Office desktop diagnostics (`OFFICE_READONLY`), Office clean up gating, Office unsupported coverage (`NOT_ANALYZED`), and Office apply-disabled parity policy.
+- Fresh strict live-host evidence is incomplete as of `docs/releases/2026-02-19_google-primary-gate.md`; automated gate readiness is green, but remaining rows are: Google diagnostics truthfulness, Google unsupported coverage (`NOT_ANALYZED:UNSUPPORTED_OBJECT_TYPE`), Google continuity findings (`BP-CONT-001`, `BP-CONT-002`), Google safe-only apply, Google reconcile states (`applied`, `reverted_externally`, `drifted`, `missing_target`), Google persistence rehydrate, Office web diagnostics (`OFFICE_SHADOW`), Office desktop diagnostics (`OFFICE_READONLY`), Office clean up gating, Office unsupported coverage (`NOT_ANALYZED:UNSUPPORTED_OBJECT_TYPE`), and Office apply-disabled parity policy.
 
 ## Immediate Priorities (next 2 weeks)
 1. Keep a dated gate-readiness snapshot cadence with command outcomes and explicit manual runbook status.
