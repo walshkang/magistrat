@@ -60,9 +60,15 @@ Expected diagnostics by environment:
 - Apply one safe patch.
 - Use the Patch log panel and click `Reconcile now`.
 - Verify patch-log states remain truthful (`applied`, `reverted_externally`, `drifted`, `missing_target`) after native Undo/edit/delete changes in the host.
-- Confirm panel copy remains honest: restore is not available yet, and reconcile is the supported path.
+- Confirm preflight reconcile is reflected before any restore attempt.
 
-5. Continuity findings
+5. Restore before (safe-only)
+- Use `Restore before` on a patch record currently in `applied` state.
+- Verify restore appends new patch records, then reconciles.
+- Verify `drifted`, `reverted_externally`, `missing_target`, and delete-like records remain non-restorable.
+- Verify messaging is explicit that only safe fields are restored.
+
+6. Continuity findings
 - Validate agenda/title checks are emitted deterministically (`BP-CONT-001`, `BP-CONT-002`) when input conditions are present.
 
 ## 4) Persistence Checks

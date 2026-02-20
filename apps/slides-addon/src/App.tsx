@@ -27,8 +27,10 @@ import type {
 } from "@magistrat/shared-types";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  buildSafeRestoreOps,
   countReconcileStates,
   countStateTransitions,
+  getRestoreUiDisabledReason,
   groupPatchRecordsByAppliedAtIso,
   reconcilePatchLogByRecordIdentity
 } from "./patchLog.js";
@@ -275,6 +277,136 @@ export function App() {
     }
   }, [documentState, readDeckCapability.reason, readDeckCapability.supported]);
 
+  const restoreBefore = useCallback(
+    async (recordIndex: number) => {
+      if (!documentState) {
+        setMessage("Document state is unavailable; run clean up first.");
+        return;
+      }
+
+      if (recordIndex < 0 || recordIndex >= documentState.patchLog.length) {
+        setMessage("Restore skipped: patch record index is out of date. Reconcile and retry.");
+        return;
+      }
+
+      if (!applyPatchCapability.supported) {
+        setMessage(applyPatchCapability.reason ?? "Patch apply is unavailable in this runtime mode.");
+        return;
+      }
+
+      if (!readDeckCapability.supported) {
+        setMessage(readDeckCapability.reason ?? "Deck snapshot is unavailable in current runtime mode.");
+        return;
+      }
+
+      try {
+        const preflightDeck = await readDeckSnapshot();
+        const preflightPatchLog = reconcilePatchLogByRecordIdentity(documentState.patchLog, preflightDeck);
+        const preflightAtIso = new Date().toISOString();
+        const preflightState: DocumentStateV1 = {
+          ...documentState,
+          patchLog: preflightPatchLog,
+          lastUpdatedIso: preflightAtIso
+        };
+
+        await saveDocumentState(preflightState);
+        setDeck(preflightDeck);
+        setDocumentState(preflightState);
+        setLastReconciledIso(preflightAtIso);
+
+        const refreshedRecord = preflightPatchLog[recordIndex];
+        if (!refreshedRecord) {
+          setMessage("Restore skipped: selected patch record is no longer available after reconcile.");
+          return;
+        }
+
+        if (refreshedRecord.reconcileState !== "applied") {
+          setMessage(`Restore skipped: patch record is ${refreshedRecord.reconcileState} after preflight reconcile.`);
+          return;
+        }
+
+        const disabledReason = getRestoreUiDisabledReason(
+          refreshedRecord,
+          applyPatchCapability.supported,
+          applyPatchCapability.reason
+        );
+        if (disabledReason) {
+          setMessage(`Restore skipped: ${disabledReason}`);
+          return;
+        }
+
+        const restoreBuild = buildSafeRestoreOps(refreshedRecord, preflightDeck, preflightAtIso);
+        if (restoreBuild.reason || restoreBuild.restoreOps.length === 0) {
+          setMessage(`Restore skipped: ${restoreBuild.reason ?? "no safe restore operations were generated."}`);
+          return;
+        }
+
+        try {
+          const restoredRecords = await applyPatchOps(restoreBuild.restoreOps);
+          const restoredDeck = await readDeckSnapshot();
+          const patchLogWithRestore = [...preflightPatchLog, ...restoredRecords];
+          const reconciledPatchLog = reconcilePatchLogByRecordIdentity(patchLogWithRestore, restoredDeck);
+          const restoredAtIso = new Date().toISOString();
+          const nextState: DocumentStateV1 = {
+            ...preflightState,
+            patchLog: reconciledPatchLog,
+            lastUpdatedIso: restoredAtIso
+          };
+
+          await saveDocumentState(nextState);
+          setDeck(restoredDeck);
+          setDocumentState(nextState);
+          setLastReconciledIso(restoredAtIso);
+          setMessage(
+            `Restored safe fields for patch ${refreshedRecord.id}. Applied ${restoreBuild.restoreOps.length} safe restore ops, appended ${restoredRecords.length} restore patch records, and reconciled ${reconciledPatchLog.length} total records.`
+          );
+        } catch (error: unknown) {
+          const partialApplied = getPartialAppliedRecords(error);
+          if (partialApplied.length > 0) {
+            try {
+              const restoredDeck = await readDeckSnapshot();
+              const patchLogWithRestore = [...preflightPatchLog, ...partialApplied];
+              const reconciledPatchLog = reconcilePatchLogByRecordIdentity(patchLogWithRestore, restoredDeck);
+              const restoredAtIso = new Date().toISOString();
+              const nextState: DocumentStateV1 = {
+                ...preflightState,
+                patchLog: reconciledPatchLog,
+                lastUpdatedIso: restoredAtIso
+              };
+
+              await saveDocumentState(nextState);
+              setDeck(restoredDeck);
+              setDocumentState(nextState);
+              setLastReconciledIso(restoredAtIso);
+              setMessage(
+                `${error instanceof Error ? error.message : "Restore failed."} Recovered partial restore progress: appended ${partialApplied.length} restore patch records and reconciled ${reconciledPatchLog.length} total records. Only safe fields were targeted.`
+              );
+              return;
+            } catch (recoveryError: unknown) {
+              setMessage(
+                `${error instanceof Error ? error.message : "Restore failed."} Partial restore progress was detected, but refresh failed: ${
+                  recoveryError instanceof Error ? recoveryError.message : "unknown error"
+                }`
+              );
+              return;
+            }
+          }
+
+          setMessage(`Restore failed: ${error instanceof Error ? error.message : "unknown error"}`);
+        }
+      } catch (error: unknown) {
+        setMessage(`Restore preflight failed: ${error instanceof Error ? error.message : "unknown error"}`);
+      }
+    },
+    [
+      applyPatchCapability.reason,
+      applyPatchCapability.supported,
+      documentState,
+      readDeckCapability.reason,
+      readDeckCapability.supported
+    ]
+  );
+
   const ratify = useCallback(async () => {
     if (!documentState) {
       setMessage("Document state is unavailable; run clean up first.");
@@ -456,7 +588,7 @@ export function App() {
           </button>
         </div>
         <p className="muted">
-          Restore from patch log is not available yet. Use native Undo/edit/delete in the host, then reconcile here.
+          Restore before is available only for records currently reconciled as applied, and restores safe fields only.
         </p>
         <div className="grid patch-log-summary">
           <span>Total patch records</span>
@@ -485,23 +617,51 @@ export function App() {
                 <ul className="patch-log-list">
                   {group.records.map((record, recordIndex) => (
                     <li className="patch-log-item" key={`${record.id}-${record.findingId}-${recordIndex}`}>
-                      <div className="patch-log-row">
-                        <span className={`reconcile-badge reconcile-${record.reconcileState}`}>{record.reconcileState}</span>
-                        <code>
-                          {record.targetFingerprint.slideId}:{record.targetFingerprint.objectId}
-                        </code>
-                      </div>
-                      <div className="patch-log-meta">
-                        <span>
-                          finding <code>{record.findingId}</code>
-                        </span>
-                        <span>
-                          patch <code>{record.id}</code>
-                        </span>
-                        <span>
-                          at <code>{record.appliedAtIso}</code>
-                        </span>
-                      </div>
+                      {(() => {
+                        const originalRecordIndex = documentState ? documentState.patchLog.indexOf(record) : -1;
+                        const restoreDisabledReason =
+                          originalRecordIndex < 0
+                            ? "Restore is unavailable because this patch record is out of date."
+                            : getRestoreUiDisabledReason(
+                                record,
+                                applyPatchCapability.supported,
+                                applyPatchCapability.reason
+                              );
+                        const restoreDisabled = originalRecordIndex < 0 || Boolean(restoreDisabledReason);
+
+                        return (
+                          <>
+                            <div className="patch-log-row">
+                              <span className={`reconcile-badge reconcile-${record.reconcileState}`}>{record.reconcileState}</span>
+                              <code>
+                                {record.targetFingerprint.slideId}:{record.targetFingerprint.objectId}
+                              </code>
+                            </div>
+                            <div className="patch-log-meta">
+                              <span>
+                                finding <code>{record.findingId}</code>
+                              </span>
+                              <span>
+                                patch <code>{record.id}</code>
+                              </span>
+                              <span>
+                                at <code>{record.appliedAtIso}</code>
+                              </span>
+                            </div>
+                            <div className="patch-log-actions">
+                              <button
+                                className="secondary-button"
+                                onClick={() => void restoreBefore(originalRecordIndex)}
+                                disabled={restoreDisabled}
+                                title={restoreDisabledReason}
+                              >
+                                Restore before
+                              </button>
+                              {restoreDisabledReason ? <span className="restore-disabled-reason">{restoreDisabledReason}</span> : null}
+                            </div>
+                          </>
+                        );
+                      })()}
                     </li>
                   ))}
                 </ul>

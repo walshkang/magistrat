@@ -1,9 +1,14 @@
 import { describe, expect, it } from "vitest";
-import type { DeckSnapshot, PatchRecord, ReconcileSignature } from "@magistrat/shared-types";
+import { stableTargetFingerprint } from "@magistrat/google-adapter";
+import type { DeckSnapshot, PatchOp, PatchRecord, ReconcileSignature } from "@magistrat/shared-types";
 import {
+  buildSafeRestoreOps,
   countReconcileStates,
   countStateTransitions,
+  getRestoreUiDisabledReason,
   groupPatchRecordsByAppliedAtIso,
+  hasSafeRestoreDiff,
+  isEmptySignature,
   reconcilePatchLogByRecordIdentity,
   sortPatchRecordsNewestFirst
 } from "./patchLog.js";
@@ -194,6 +199,202 @@ describe("patchLog helpers", () => {
     ];
 
     expect(countStateTransitions(previous, next)).toBe(2);
+  });
+
+  it("treats only all-null signatures as empty", () => {
+    expect(
+      isEmptySignature({
+        fontFamily: null,
+        fontSizePt: null,
+        fontColor: null,
+        bold: null,
+        italic: null,
+        bulletIndent: null,
+        bulletHanging: null
+      })
+    ).toBe(true);
+
+    expect(
+      isEmptySignature({
+        fontFamily: "Aptos",
+        fontSizePt: null,
+        fontColor: null,
+        bold: null,
+        italic: null,
+        bulletIndent: null,
+        bulletHanging: null
+      })
+    ).toBe(false);
+  });
+
+  it("detects safe restore diffs", () => {
+    const before = signature("Aptos");
+    const after = signature("Calibri");
+    const changed = record({
+      id: "patch-diff",
+      findingId: "finding-diff",
+      objectId: "shape-diff",
+      before,
+      after,
+      appliedAtIso: "2026-02-19T10:00:00.000Z"
+    });
+    const unchanged = record({
+      id: "patch-same",
+      findingId: "finding-same",
+      objectId: "shape-same",
+      before: signature("Aptos"),
+      after: signature("Aptos"),
+      appliedAtIso: "2026-02-19T10:00:00.000Z"
+    });
+
+    expect(hasSafeRestoreDiff(changed)).toBe(true);
+    expect(hasSafeRestoreDiff(unchanged)).toBe(false);
+  });
+
+  it("builds only safe restore ops and computes fresh fingerprint from snapshot state", () => {
+    const before: ReconcileSignature = {
+      fontFamily: "Aptos",
+      fontSizePt: 12,
+      fontColor: "#AABBCC",
+      bold: true,
+      italic: true,
+      bulletIndent: 24,
+      bulletHanging: 12
+    };
+    const after: ReconcileSignature = {
+      fontFamily: "Calibri",
+      fontSizePt: 12,
+      fontColor: "#223344",
+      bold: false,
+      italic: false,
+      bulletIndent: 18,
+      bulletHanging: 9
+    };
+    const patch = record({
+      id: "patch-restore",
+      findingId: "finding-restore",
+      objectId: "shape-restore",
+      before,
+      after,
+      appliedAtIso: "2026-02-19T10:00:00.000Z"
+    });
+    const deck = createDeck([{ objectId: "shape-restore", fontFamily: "Deck-Family" }]);
+    const result = buildSafeRestoreOps(patch, deck, "2026-02-20T01:02:03.456Z");
+    const allowedOps = new Set<PatchOp["op"]>([
+      "SET_FONT_FAMILY",
+      "SET_FONT_COLOR",
+      "SET_FONT_STYLE",
+      "SET_BULLET_INDENT"
+    ]);
+
+    expect(result.reason).toBeUndefined();
+    expect(result.restoreOps).toHaveLength(4);
+    expect(result.restoreOps.every((op) => allowedOps.has(op.op))).toBe(true);
+
+    const expectedTarget = stableTargetFingerprint("slide-1", "shape-restore", {
+      fontFamily: "Deck-Family",
+      fontColor: "#111111",
+      bold: false,
+      italic: false,
+      bulletIndent: 18,
+      bulletHanging: 9
+    });
+
+    for (const op of result.restoreOps) {
+      expect(op.target.slideId).toBe("slide-1");
+      expect(op.target.objectId).toBe("shape-restore");
+      expect(op.target.preconditionHash).toBe(expectedTarget.preconditionHash);
+    }
+  });
+
+  it("returns explicit reasons for delete-like, no-diff, and missing-target restore attempts", () => {
+    const deleteLike = record({
+      id: "patch-delete",
+      findingId: "finding-delete",
+      objectId: "shape-delete",
+      before: signature("Aptos"),
+      after: {
+        fontFamily: null,
+        fontSizePt: null,
+        fontColor: null,
+        bold: null,
+        italic: null,
+        bulletIndent: null,
+        bulletHanging: null
+      },
+      appliedAtIso: "2026-02-19T10:00:00.000Z"
+    });
+    const noDiff = record({
+      id: "patch-nodiff",
+      findingId: "finding-nodiff",
+      objectId: "shape-nodiff",
+      before: signature("Aptos"),
+      after: signature("Aptos"),
+      appliedAtIso: "2026-02-19T10:00:00.000Z"
+    });
+    const missingTarget = record({
+      id: "patch-missing",
+      findingId: "finding-missing",
+      objectId: "shape-missing",
+      before: signature("Aptos"),
+      after: signature("Calibri"),
+      appliedAtIso: "2026-02-19T10:00:00.000Z"
+    });
+    const deck = createDeck([{ objectId: "shape-other", fontFamily: "Deck" }]);
+
+    expect(buildSafeRestoreOps(deleteLike, deck, "2026-02-20T01:02:03.456Z").reason).toContain("delete-like");
+    expect(buildSafeRestoreOps(noDiff, deck, "2026-02-20T01:02:03.456Z").reason).toContain("no safe field diff");
+    expect(buildSafeRestoreOps(missingTarget, deck, "2026-02-20T01:02:03.456Z").reason).toContain("missing");
+  });
+
+  it("returns truthful restore disable reasons", () => {
+    const base = record({
+      id: "patch-base",
+      findingId: "finding-base",
+      objectId: "shape-base",
+      before: signature("Aptos"),
+      after: signature("Calibri"),
+      appliedAtIso: "2026-02-19T10:00:00.000Z"
+    });
+
+    expect(getRestoreUiDisabledReason(base, false, "apply unsupported")).toBe("apply unsupported");
+    expect(
+      getRestoreUiDisabledReason(
+        {
+          ...base,
+          reconcileState: "drifted"
+        },
+        true
+      )
+    ).toContain("applied");
+    expect(
+      getRestoreUiDisabledReason(
+        {
+          ...base,
+          after: {
+            fontFamily: null,
+            fontSizePt: null,
+            fontColor: null,
+            bold: null,
+            italic: null,
+            bulletIndent: null,
+            bulletHanging: null
+          }
+        },
+        true
+      )
+    ).toContain("delete-like");
+    expect(
+      getRestoreUiDisabledReason(
+        {
+          ...base,
+          before: signature("Aptos"),
+          after: signature("Aptos")
+        },
+        true
+      )
+    ).toContain("no safe fields");
+    expect(getRestoreUiDisabledReason(base, true)).toBeUndefined();
   });
 });
 
