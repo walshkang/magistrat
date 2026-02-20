@@ -58,7 +58,9 @@ Expected diagnostics by environment:
 
 4. Reconcile correctness
 - Apply one safe patch.
-- Re-run read/reconcile cycle and verify patch-log states remain truthful (`applied`, `reverted_externally`, `drifted`, `missing_target`).
+- Use the Patch log panel and click `Reconcile now`.
+- Verify patch-log states remain truthful (`applied`, `reverted_externally`, `drifted`, `missing_target`) after native Undo/edit/delete changes in the host.
+- Confirm panel copy remains honest: restore is not available yet, and reconcile is the supported path.
 
 5. Continuity findings
 - Validate agenda/title checks are emitted deterministically (`BP-CONT-001`, `BP-CONT-002`) when input conditions are present.

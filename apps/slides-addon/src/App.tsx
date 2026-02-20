@@ -4,7 +4,6 @@ import {
   buildStyleSignature,
   inferRoles,
   planPatches,
-  reconcilePatches,
   runChecks,
   scoreExemplarHealth
 } from "@magistrat/compiler-core";
@@ -27,6 +26,12 @@ import type {
   StyleMap
 } from "@magistrat/shared-types";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  countReconcileStates,
+  countStateTransitions,
+  groupPatchRecordsByAppliedAtIso,
+  reconcilePatchLogByRecordIdentity
+} from "./patchLog.js";
 
 interface AnalysisState {
   findings: Finding[];
@@ -56,7 +61,10 @@ export function App() {
   const [selectedExemplarSlideId, setSelectedExemplarSlideId] = useState<string>("");
   const [exemplarMode, setExemplarMode] = useState<ExemplarSelection["mode"]>("token_normalized");
   const [analysisState, setAnalysisState] = useState<AnalysisState | null>(null);
+  const [lastReconciledIso, setLastReconciledIso] = useState<string>("");
   const [message, setMessage] = useState<string>("");
+  const patchLogGroups = useMemo(() => groupPatchRecordsByAppliedAtIso(documentState?.patchLog ?? []), [documentState?.patchLog]);
+  const patchStateCounts = useMemo(() => countReconcileStates(documentState?.patchLog ?? []), [documentState?.patchLog]);
 
   useEffect(() => {
     let mounted = true;
@@ -159,12 +167,8 @@ export function App() {
       const refreshed = analyzeDeckSnapshot(refreshedDeck, selectedExemplarSlideId, exemplarMode);
 
       const patchLog = [...documentState.patchLog, ...applied];
-      const reconcileResults = reconcilePatches(patchLog, refreshedDeck);
-      const reconcileMap = new Map(reconcileResults.map((result) => [result.patch.id, result.nextState]));
-      const reconciledPatchLog = patchLog.map((patch) => ({
-        ...patch,
-        reconcileState: reconcileMap.get(patch.id) ?? patch.reconcileState
-      }));
+      const reconciledPatchLog = reconcilePatchLogByRecordIdentity(patchLog, refreshedDeck);
+      const reconciledAtIso = new Date().toISOString();
 
       const nextState: DocumentStateV1 = {
         ...documentState,
@@ -178,13 +182,14 @@ export function App() {
         findings: refreshed.analysis.findings,
         coverage: refreshed.analysis.coverage,
         patchLog: reconciledPatchLog,
-        lastUpdatedIso: new Date().toISOString()
+        lastUpdatedIso: reconciledAtIso
       };
 
       await saveDocumentState(nextState);
       setDeck(refreshedDeck);
       setDocumentState(nextState);
       setAnalysisState(refreshed.analysis);
+      setLastReconciledIso(reconciledAtIso);
       setMessage(`Applied ${applied.length} safe patches and reconciled ${reconciledPatchLog.length} patch records.`);
     } catch (error: unknown) {
       const partialApplied = getPartialAppliedRecords(error);
@@ -194,12 +199,8 @@ export function App() {
           const refreshed = analyzeDeckSnapshot(refreshedDeck, selectedExemplarSlideId, exemplarMode);
 
           const patchLog = [...documentState.patchLog, ...partialApplied];
-          const reconcileResults = reconcilePatches(patchLog, refreshedDeck);
-          const reconcileMap = new Map(reconcileResults.map((result) => [result.patch.id, result.nextState]));
-          const reconciledPatchLog = patchLog.map((patch) => ({
-            ...patch,
-            reconcileState: reconcileMap.get(patch.id) ?? patch.reconcileState
-          }));
+          const reconciledPatchLog = reconcilePatchLogByRecordIdentity(patchLog, refreshedDeck);
+          const reconciledAtIso = new Date().toISOString();
 
           const nextState: DocumentStateV1 = {
             ...documentState,
@@ -213,13 +214,14 @@ export function App() {
             findings: refreshed.analysis.findings,
             coverage: refreshed.analysis.coverage,
             patchLog: reconciledPatchLog,
-            lastUpdatedIso: new Date().toISOString()
+            lastUpdatedIso: reconciledAtIso
           };
 
           await saveDocumentState(nextState);
           setDeck(refreshedDeck);
           setDocumentState(nextState);
           setAnalysisState(refreshed.analysis);
+          setLastReconciledIso(reconciledAtIso);
           setMessage(
             `${error instanceof Error ? error.message : "Apply safe failed."} Recovered partial progress: reconciled ${partialApplied.length} applied patch records.`
           );
@@ -237,6 +239,41 @@ export function App() {
       setMessage(error instanceof Error ? error.message : "Apply safe failed.");
     }
   }, [analysisState, applyPatchCapability.reason, applyPatchCapability.supported, deck, documentState, exemplarMode, selectedExemplarSlideId]);
+
+  const reconcileNow = useCallback(async () => {
+    if (!documentState) {
+      setMessage("Document state is unavailable; run clean up first.");
+      return;
+    }
+
+    if (!readDeckCapability.supported) {
+      setMessage(readDeckCapability.reason ?? "Deck snapshot is unavailable in current runtime mode.");
+      return;
+    }
+
+    try {
+      const refreshedDeck = await readDeckSnapshot();
+      const reconciledPatchLog = reconcilePatchLogByRecordIdentity(documentState.patchLog, refreshedDeck);
+      const changedStates = countStateTransitions(documentState.patchLog, reconciledPatchLog);
+      const counts = countReconcileStates(reconciledPatchLog);
+      const reconciledAtIso = new Date().toISOString();
+      const nextState: DocumentStateV1 = {
+        ...documentState,
+        patchLog: reconciledPatchLog,
+        lastUpdatedIso: reconciledAtIso
+      };
+
+      await saveDocumentState(nextState);
+      setDeck(refreshedDeck);
+      setDocumentState(nextState);
+      setLastReconciledIso(reconciledAtIso);
+      setMessage(
+        `Reconciled ${reconciledPatchLog.length} patch records. Changed ${changedStates} states (applied=${counts.applied}, reverted_externally=${counts.reverted_externally}, drifted=${counts.drifted}, missing_target=${counts.missing_target}).`
+      );
+    } catch (error: unknown) {
+      setMessage(`Reconcile failed: ${error instanceof Error ? error.message : "unknown error"}`);
+    }
+  }, [documentState, readDeckCapability.reason, readDeckCapability.supported]);
 
   const ratify = useCallback(async () => {
     if (!documentState) {
@@ -406,6 +443,73 @@ export function App() {
           </section>
         </>
       ) : null}
+
+      <section className="panel">
+        <div className="panel-header">
+          <h2>Patch log</h2>
+          <button
+            onClick={() => void reconcileNow()}
+            disabled={!documentState || !readDeckCapability.supported}
+            title={!readDeckCapability.supported ? readDeckCapability.reason : undefined}
+          >
+            Reconcile now
+          </button>
+        </div>
+        <p className="muted">
+          Restore from patch log is not available yet. Use native Undo/edit/delete in the host, then reconcile here.
+        </p>
+        <div className="grid patch-log-summary">
+          <span>Total patch records</span>
+          <strong>{documentState?.patchLog.length ?? 0}</strong>
+          <span>Applied</span>
+          <strong>{patchStateCounts.applied}</strong>
+          <span>Reverted externally</span>
+          <strong>{patchStateCounts.reverted_externally}</strong>
+          <span>Drifted</span>
+          <strong>{patchStateCounts.drifted}</strong>
+          <span>Missing target</span>
+          <strong>{patchStateCounts.missing_target}</strong>
+          <span>Last reconciled</span>
+          <strong>{lastReconciledIso || "-"}</strong>
+        </div>
+
+        {patchLogGroups.length === 0 ? (
+          <p className="muted">No patch records yet. Run clean up and apply safe patches to populate this log.</p>
+        ) : (
+          <div className="patch-log-groups">
+            {patchLogGroups.map((group, groupIndex) => (
+              <article className="patch-log-group" key={`${group.appliedAtIso}-${groupIndex}`}>
+                <h3>
+                  <code>{group.appliedAtIso}</code> ({group.records.length})
+                </h3>
+                <ul className="patch-log-list">
+                  {group.records.map((record, recordIndex) => (
+                    <li className="patch-log-item" key={`${record.id}-${record.findingId}-${recordIndex}`}>
+                      <div className="patch-log-row">
+                        <span className={`reconcile-badge reconcile-${record.reconcileState}`}>{record.reconcileState}</span>
+                        <code>
+                          {record.targetFingerprint.slideId}:{record.targetFingerprint.objectId}
+                        </code>
+                      </div>
+                      <div className="patch-log-meta">
+                        <span>
+                          finding <code>{record.findingId}</code>
+                        </span>
+                        <span>
+                          patch <code>{record.id}</code>
+                        </span>
+                        <span>
+                          at <code>{record.appliedAtIso}</code>
+                        </span>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </article>
+            ))}
+          </div>
+        )}
+      </section>
 
       {message ? <footer className="panel info">{message}</footer> : null}
     </main>

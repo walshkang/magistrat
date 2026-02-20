@@ -4,7 +4,6 @@ import {
   buildStyleSignature,
   inferRoles,
   planPatches,
-  reconcilePatches,
   runChecks,
   scoreExemplarHealth
 } from "@magistrat/compiler-core";
@@ -25,6 +24,7 @@ import type {
   StyleMap
 } from "@magistrat/shared-types";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { reconcilePatchLogByRecordIdentity } from "./reconcilePatchLog.js";
 
 interface AnalysisState {
   findings: Finding[];
@@ -150,12 +150,7 @@ export function App() {
       const refreshed = analyzeDeckSnapshot(refreshedDeck, selectedExemplarSlideId, exemplarMode);
 
       const patchLog = [...documentState.patchLog, ...applied];
-      const reconcileResults = reconcilePatches(patchLog, refreshedDeck);
-      const reconcileMap = new Map(reconcileResults.map((result) => [result.patch.id, result.nextState]));
-      const reconciledPatchLog = patchLog.map((patch) => ({
-        ...patch,
-        reconcileState: reconcileMap.get(patch.id) ?? patch.reconcileState
-      }));
+      const reconciledPatchLog = reconcilePatchLogByRecordIdentity(patchLog, refreshedDeck);
 
       const nextState: DocumentStateV1 = {
         ...documentState,
