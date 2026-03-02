@@ -75,6 +75,62 @@ describe("google adapter public api", () => {
     expect(bridge.carrier).toContain("footer content");
   });
 
+  it("migrates legacy coverage fields on loadDocumentState", async () => {
+    const bridge = createMutableBridge(createBasePresentation());
+    setGoogleSlidesBridgeForTests(bridge.api);
+
+    const legacyState = {
+      schemaVersion: 1,
+      lastUpdatedIso: "2026-02-18T00:00:00.000Z",
+      findings: [
+        {
+          id: "finding-legacy-not-analyzed",
+          ruleId: "BP-COVERAGE-001",
+          source: "exemplar",
+          slideId: "slide-1",
+          objectId: "shape-title",
+          observed: {},
+          expected: {},
+          evidence: [],
+          confidence: 1,
+          risk: "manual",
+          severity: "info",
+          coverage: "NOT_ANALYZED",
+          notAnalyzedReason: "UNSUPPORTED_OBJECT_TYPE"
+        }
+      ],
+      // Legacy coverage lacking notAnalyzedObjects and continuity fields.
+      coverage: {
+        analyzedSlides: 1,
+        totalSlides: 2,
+        analyzedObjects: 1,
+        totalObjects: 2
+      }
+    } as unknown as DocumentStateV1;
+
+    const legacyJson = JSON.stringify(legacyState);
+    bridge.carrier = [
+      "prefix content",
+      "<!-- MAGISTRAT_STATE_V1_START -->",
+      legacyJson,
+      "<!-- MAGISTRAT_STATE_V1_END -->",
+      "footer content"
+    ].join("\n");
+
+    const loaded = await loadDocumentState();
+
+    expect(loaded.coverage).toBeDefined();
+    expect(loaded.coverage?.analyzedSlides).toBe(1);
+    expect(loaded.coverage?.totalSlides).toBe(2);
+    expect(loaded.coverage?.analyzedObjects).toBe(1);
+    expect(loaded.coverage?.totalObjects).toBe(2);
+    // Migration should infer notAnalyzedObjects from NOT_ANALYZED findings.
+    expect(loaded.coverage?.notAnalyzedObjects).toBe(1);
+    // Migration should default continuity fields when absent.
+    expect(loaded.coverage?.continuityStatus).toBe("NOT_RUN");
+    expect(loaded.coverage?.continuityCoverage).toBe(0);
+  });
+
   it("uses GOOGLE_READONLY mode when bridge cannot apply patches", async () => {
     const bridge = createMutableBridge(createBasePresentation(), {
       applyPatchOps: false

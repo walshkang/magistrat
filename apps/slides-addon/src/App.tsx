@@ -68,6 +68,22 @@ export function App() {
   const patchLogGroups = useMemo(() => groupPatchRecordsByAppliedAtIso(documentState?.patchLog ?? []), [documentState?.patchLog]);
   const patchStateCounts = useMemo(() => countReconcileStates(documentState?.patchLog ?? []), [documentState?.patchLog]);
 
+  const safePatchCount = analysisState?.safePatches.length ?? 0;
+  const totalFindings = analysisState?.findings.length ?? documentState?.findings.length ?? 0;
+  const coverageSnapshot = analysisState?.coverage ?? documentState?.coverage;
+  const coverageSlidesPercent =
+    coverageSnapshot && coverageSnapshot.totalSlides > 0
+      ? Math.round((coverageSnapshot.analyzedSlides / coverageSnapshot.totalSlides) * 100)
+      : null;
+  const canApplySafeFromHud = Boolean(
+    analysisState && documentState && deck && safePatchCount > 0 && applyPatchCapability.supported
+  );
+  const canRunCleanupFromHud = Boolean(deck && documentState);
+  const hudPrimaryIsApplySafe = canApplySafeFromHud;
+  const hudPrimaryLabel = hudPrimaryIsApplySafe ? `Apply safe (${safePatchCount})` : "Run clean up";
+  const hudPrimaryDisabled = hudPrimaryIsApplySafe ? !canApplySafeFromHud : !canRunCleanupFromHud;
+  const ratifyState = documentState?.ratify;
+
   useEffect(() => {
     let mounted = true;
 
@@ -450,6 +466,31 @@ export function App() {
         <p>Trust-first Google Slides compiler workflow.</p>
       </header>
 
+      <section className="panel">
+        <div className="panel-header">
+          <h2>Style HUD</h2>
+          <button
+            onClick={() => void (hudPrimaryIsApplySafe ? applySafe() : runCleanup())}
+            disabled={hudPrimaryDisabled}
+            title={
+              hudPrimaryIsApplySafe && !applyPatchCapability.supported ? applyPatchCapability.reason : undefined
+            }
+          >
+            {hudPrimaryLabel}
+          </button>
+        </div>
+        <div className="grid">
+          <span>Runtime mode</span>
+          <strong>{runtimeStatus.mode}</strong>
+          <span>Exemplar slide</span>
+          <strong>{selectedExemplarSlideId || "-"}</strong>
+          <span>Scan coverage</span>
+          <strong>{coverageSlidesPercent != null ? `${coverageSlidesPercent}% of slides` : "Not yet scanned"}</strong>
+          <span>Findings</span>
+          <strong>{totalFindings}</strong>
+        </div>
+      </section>
+
       {runtimeStatus.mode === "GOOGLE_SHADOW" ? (
         <section className="panel warning">
           <h2>Bridge unavailable</h2>
@@ -549,8 +590,11 @@ export function App() {
           </section>
 
           <section className="panel">
-            <h2>Findings</h2>
-            <p>{analysisState.findings.length} total findings.</p>
+            <h2>Linter stream</h2>
+            <p>
+              {analysisState.findings.length} findings · safe={analysisState.safePatches.length} · caution=
+              {analysisState.cautionPatches.length} · manual={analysisState.manualPatches.length}
+            </p>
             <ul>
               {analysisState.findings.slice(0, 8).map((finding) => (
                 <li key={finding.id}>
@@ -603,6 +647,12 @@ export function App() {
           <strong>{patchStateCounts.missing_target}</strong>
           <span>Last reconciled</span>
           <strong>{lastReconciledIso || "-"}</strong>
+          <span>Ratify status</span>
+          <strong>
+            {ratifyState
+              ? `Deck ratified at ${ratifyState.ratifiedAtIso}`
+              : "Not ratified"}
+          </strong>
         </div>
 
         {patchLogGroups.length === 0 ? (
