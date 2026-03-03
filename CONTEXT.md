@@ -16,7 +16,7 @@
 ## Immediate Priorities (next 2 weeks)
 1. Keep a dated gate-readiness snapshot cadence with command outcomes and explicit manual runbook status.
 2. Capture manual Google (`docs/SLIDES_RUNBOOK.md`) and Office parity (`docs/SMOKE_TEST_RUNBOOK.md`) runbook evidence in a host-capable environment.
-3. Start decision-complete trust-loop UX depth planning after manual gate evidence is current.
+3. Start decision-complete trust-loop UX depth planning after manual gate evidence is current (see `docs/UX_ROADMAP.md` and `docs/PRD.md`).
 4. Maintain deterministic `NOT_ANALYZED` and reconcile truthfulness while hardening release language.
 5. Keep Google safe-apply revision guard and chunking behavior stable under gate maintenance.
 6. Maintain Office parity diagnostics truth without enabling live patch apply.
