@@ -1,10 +1,12 @@
 import {
   buildDeckIr,
   buildStyleMap,
+  computeAlignmentScore,
   inferRoles,
   planPatches,
   runChecks,
-  scoreExemplarHealth
+  scoreExemplarHealth,
+  type AlignmentScore
 } from "@magistrat/compiler-core";
 import {
   applyPatchOps,
@@ -34,6 +36,7 @@ export interface AnalysisState {
   exemplarHealthScore: number;
   styleMap: StyleMap;
   stale: boolean;
+  alignmentScore: AlignmentScore;
 }
 
 interface AnalyzeResult {
@@ -330,6 +333,7 @@ function analyzeDeckSnapshot(
   const inferred = inferRoles(ir);
   const styleMapResult = buildStyleMap(exemplarSlide, exemplarMode);
   const checks = runChecks(inferred.deck, styleMapResult.styleMap);
+  const alignmentScore = computeAlignmentScore(checks.findings, checks.coverage);
   const patches = planPatches(checks.findings, checks.suggestedPatches);
   const exemplarHealth = scoreExemplarHealth(exemplarSlide);
 
@@ -343,7 +347,8 @@ function analyzeDeckSnapshot(
       coverage: checks.coverage,
       exemplarHealthScore: exemplarHealth.score,
       styleMap: styleMapResult.styleMap,
-      stale: false
+      stale: false,
+      alignmentScore
     }
   };
 }
@@ -361,6 +366,7 @@ function hydrateAnalysisState(state: DocumentStateV1): AnalysisState | null {
     coverage: state.coverage,
     exemplarHealthScore: 0,
     styleMap: state.styleMap ?? {},
-    stale: true
+    stale: true,
+    alignmentScore: computeAlignmentScore(state.findings, state.coverage)
   };
 }

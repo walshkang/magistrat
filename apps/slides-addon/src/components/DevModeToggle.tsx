@@ -5,7 +5,7 @@ export function DevModeToggle() {
   return (
     <button
       type="button"
-      className="dev-mode-toggle"
+      className="btn-ghost btn-ghost-sm dev-mode-toggle"
       aria-pressed={devMode}
       onClick={toggleDevMode}
     >

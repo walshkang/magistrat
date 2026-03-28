@@ -1,11 +1,13 @@
 import { getDocumentId, getRuntimeStatus } from "@magistrat/google-adapter";
 import type { DocumentStateV1 } from "@magistrat/shared-types";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { AlignmentScoreBar } from "./components/AlignmentScoreBar.js";
 import { DevModeToggle } from "./components/DevModeToggle.js";
 import { FindingsPanel } from "./components/FindingsPanel.js";
 import { useDevMode } from "./context/DevModeContext.js";
 import { useAnalysis } from "./hooks/useAnalysis.js";
 import { usePatchLog } from "./hooks/usePatchLog.js";
+import { messageLooksPersistent } from "./messageToast.js";
 import { getRestoreUiDisabledReason } from "./patchLog.js";
 
 export function App() {
@@ -17,6 +19,8 @@ export function App() {
 
   const [documentState, setDocumentState] = useState<DocumentStateV1 | null>(null);
   const [lastReconciledIso, setLastReconciledIso] = useState<string>("");
+  const [exemplarExpanded, setExemplarExpanded] = useState(true);
+  const hasCollapsedExemplarAfterScanRef = useRef(false);
 
   const {
     loading,
@@ -40,6 +44,24 @@ export function App() {
     applyPatchCapability
   });
 
+  useEffect(() => {
+    if (analysisState && !hasCollapsedExemplarAfterScanRef.current) {
+      setExemplarExpanded(false);
+      hasCollapsedExemplarAfterScanRef.current = true;
+    }
+  }, [analysisState]);
+
+  useEffect(() => {
+    if (!message) {
+      return;
+    }
+    if (messageLooksPersistent(message)) {
+      return;
+    }
+    const id = window.setTimeout(() => setMessage(""), 5000);
+    return () => window.clearTimeout(id);
+  }, [message, setMessage]);
+
   const { patchLogGroups, patchStateCounts, reconcileNow, restoreBefore, ratify } = usePatchLog({
     documentState,
     setDocumentState,
@@ -53,58 +75,71 @@ export function App() {
 
   const safePatchCount = analysisState?.safePatches.length ?? 0;
   const totalFindings = analysisState?.findings.length ?? documentState?.findings.length ?? 0;
-  const coverageSnapshot = analysisState?.coverage ?? documentState?.coverage;
-  const coverageSlidesPercent =
-    coverageSnapshot && coverageSnapshot.totalSlides > 0
-      ? Math.round((coverageSnapshot.analyzedSlides / coverageSnapshot.totalSlides) * 100)
-      : null;
-  const canApplySafeFromHud = Boolean(
+  const hasFindings = (analysisState?.findings.length ?? 0) > 0;
+  const canApplySafeFromSummary = Boolean(
     analysisState && documentState && deck && safePatchCount > 0 && applyPatchCapability.supported
   );
-  const canRunCleanupFromHud = Boolean(deck && documentState);
-  const hudPrimaryIsApplySafe = canApplySafeFromHud;
-  const hudPrimaryLabel = hudPrimaryIsApplySafe ? `Apply safe (${safePatchCount})` : "Run clean up";
-  const hudPrimaryDisabled = hudPrimaryIsApplySafe ? !canApplySafeFromHud : !canRunCleanupFromHud;
+  const canRunScan = Boolean(deck && documentState);
   const ratifyState = documentState?.ratify;
+  const totalPatches = documentState?.patchLog.length ?? 0;
+
+  const findingsRiskCounts = useMemo(() => {
+    if (!analysisState) {
+      return { safe: 0, caution: 0, manual: 0 };
+    }
+    let safe = 0;
+    let caution = 0;
+    let manual = 0;
+    for (const f of analysisState.findings) {
+      if (f.risk === "safe") {
+        safe += 1;
+      } else if (f.risk === "caution") {
+        caution += 1;
+      } else {
+        manual += 1;
+      }
+    }
+    return { safe, caution, manual };
+  }, [analysisState]);
+
+  const exemplarSlideLabel =
+    deck?.slides.find((s) => s.slideId === selectedExemplarSlideId)?.title ||
+    selectedExemplarSlideId ||
+    "—";
+  const exemplarModeShort = exemplarMode === "token_normalized" ? "Normalized" : "Original";
+
+  const exemplarSummaryLine =
+    analysisState && !devMode
+      ? `Exemplar: ${exemplarSlideLabel} · ${exemplarModeShort} · Health ${analysisState.exemplarHealthScore}/100`
+      : `Exemplar: ${exemplarSlideLabel} · ${exemplarModeShort}`;
+
+  const showPreScanEmpty =
+    !analysisState && Boolean(deck && documentState && readDeckCapability.supported);
+
+  const patchLogHasIssues =
+    patchStateCounts.reverted_externally > 0 ||
+    patchStateCounts.drifted > 0 ||
+    patchStateCounts.missing_target > 0;
 
   if (loading) {
-    return <main className="shell">Loading Magistrat Google Slides...</main>;
+    return (
+      <main className="shell loading-state" aria-busy="true">
+        <div className="loading-spinner" aria-hidden />
+        <span className="loading-text" role="status">
+          Connecting to deck...
+        </span>
+      </main>
+    );
   }
 
   return (
     <main className="shell">
       <header className="header header-row">
         <div className="header-brand">
-          <h1>Magistrat</h1>
-          <p>Trust-first Google Slides compiler workflow.</p>
+          <span className="header-brand__title">Magistrat</span>
         </div>
         <DevModeToggle />
       </header>
-
-      <section className="panel">
-        <div className="panel-header">
-          <h2>Style HUD</h2>
-          <button
-            onClick={() => void (hudPrimaryIsApplySafe ? applySafe() : runCleanup())}
-            disabled={hudPrimaryDisabled}
-            title={
-              hudPrimaryIsApplySafe && !applyPatchCapability.supported ? applyPatchCapability.reason : undefined
-            }
-          >
-            {hudPrimaryLabel}
-          </button>
-        </div>
-        <div className="grid">
-          <span>Runtime mode</span>
-          <strong>{runtimeStatus.mode}</strong>
-          <span>Exemplar slide</span>
-          <strong>{selectedExemplarSlideId || "-"}</strong>
-          <span>Scan coverage</span>
-          <strong>{coverageSlidesPercent != null ? `${coverageSlidesPercent}% of slides` : "Not yet scanned"}</strong>
-          <span>Findings</span>
-          <strong>{totalFindings}</strong>
-        </div>
-      </section>
 
       {runtimeStatus.mode === "GOOGLE_SHADOW" ? (
         <section className="panel warning">
@@ -144,46 +179,122 @@ export function App() {
         </section>
       ) : null}
 
-      <section className="panel">
-        <h2>Exemplar setup</h2>
-        <div className="controls">
-          <label>
-            Exemplar slide
-            <select
-              value={selectedExemplarSlideId}
-              onChange={(event) => setSelectedExemplarSlideId(event.target.value)}
+      <details
+        className="exemplar-details"
+        open={exemplarExpanded}
+        onToggle={(event) => setExemplarExpanded(event.currentTarget.open)}
+      >
+        <summary
+          className="exemplar-details__summary"
+          aria-label={exemplarExpanded ? exemplarSummaryLine : undefined}
+        >
+          {exemplarExpanded ? "Exemplar setup" : exemplarSummaryLine}
+        </summary>
+        <div className="exemplar-details__body">
+          <div className="controls">
+            <label>
+              Exemplar slide
+              <select
+                value={selectedExemplarSlideId}
+                onChange={(event) => setSelectedExemplarSlideId(event.target.value)}
+                disabled={!deck}
+              >
+                {deck?.slides.map((slide) => (
+                  <option key={slide.slideId} value={slide.slideId}>
+                    {slide.index}. {slide.title || slide.slideId}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label>
+              Style map mode
+              <select
+                value={exemplarMode}
+                onChange={(event) => setExemplarMode(event.target.value as typeof exemplarMode)}
+              >
+                <option value="original">Use Original Exemplar</option>
+                <option value="token_normalized">Use Normalized Exemplar (token-only preview)</option>
+              </select>
+            </label>
+
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={() => void runCleanup()}
               disabled={!deck}
             >
-              {deck?.slides.map((slide) => (
-                <option key={slide.slideId} value={slide.slideId}>
-                  {slide.index}. {slide.title || slide.slideId}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label>
-            Style map mode
-            <select
-              value={exemplarMode}
-              onChange={(event) => setExemplarMode(event.target.value as typeof exemplarMode)}
-            >
-              <option value="original">Use Original Exemplar</option>
-              <option value="token_normalized">Use Normalized Exemplar (token-only preview)</option>
-            </select>
-          </label>
-
-          <button onClick={() => void runCleanup()} disabled={!deck}>
-            Run clean up
-          </button>
+              {analysisState ? "Rescan" : "Scan deck"}
+            </button>
+          </div>
+          {analysisState && !devMode ? (
+            <p className="exemplar-health-summary">Exemplar health: {analysisState.exemplarHealthScore}/100</p>
+          ) : null}
         </div>
-        {analysisState && !devMode ? (
-          <p className="exemplar-health-summary">Exemplar health: {analysisState.exemplarHealthScore}/100</p>
-        ) : null}
-      </section>
+      </details>
+
+      {showPreScanEmpty ? (
+        <section className="empty-state" aria-label="Scan prompt">
+          <div className="empty-state__copy">
+            <p>Scan your deck to check</p>
+            <p>alignment with the exemplar</p>
+          </div>
+          <button type="button" className="btn-primary" onClick={() => void runCleanup()} disabled={!canRunScan}>
+            Scan deck
+          </button>
+        </section>
+      ) : null}
 
       {analysisState ? (
         <>
+          <AlignmentScoreBar score={analysisState.alignmentScore} />
+          <section
+            className={`summary-panel${analysisState.findings.length === 0 ? " summary-panel--all-clear" : ""}`}
+            aria-label="Scan summary"
+          >
+            {analysisState.findings.length === 0 ? (
+              <>
+                <div className="summary-panel__top-row">
+                  <p className="summary-panel__meta summary-panel__meta--status">All clear</p>
+                </div>
+                <p className="summary-panel__sub">No style issues found.</p>
+              </>
+            ) : (
+              <>
+                <div className="summary-panel__top-row">
+                  <p className="summary-panel__meta">
+                    {totalFindings} {totalFindings === 1 ? "finding" : "findings"}
+                  </p>
+                </div>
+                <p className="summary-panel__breakdown">
+                  {findingsRiskCounts.safe} auto-fixable · {findingsRiskCounts.caution} need review ·{" "}
+                  {findingsRiskCounts.manual} manual
+                </p>
+              </>
+            )}
+            <div className="summary-panel__actions">
+              <button
+                type="button"
+                className={hasFindings ? "btn-secondary" : "btn-primary"}
+                onClick={() => void runCleanup()}
+                disabled={!canRunScan}
+              >
+                Scan deck
+              </button>
+              <button
+                type="button"
+                className={hasFindings ? "btn-primary" : "btn-secondary"}
+                onClick={() => void applySafe()}
+                disabled={!canApplySafeFromSummary}
+                title={
+                  !applyPatchCapability.supported && safePatchCount > 0 ? applyPatchCapability.reason : undefined
+                }
+              >
+                Apply Recommended Fixes ({safePatchCount})
+              </button>
+            </div>
+          </section>
+
           {devMode ? (
             <section className="panel">
               <h2>Coverage meter</h2>
@@ -226,123 +337,168 @@ export function App() {
               onApplyFinding={(id) => void applyForFinding(id)}
             />
             <div className="actions">
-              <button
-                onClick={() => void applySafe()}
-                disabled={!applyPatchCapability.supported || analysisState.safePatches.length === 0}
-                title={applyPatchCapability.reason}
-              >
-                Apply safe ({analysisState.safePatches.length})
+              <button type="button" className="btn-ghost" onClick={() => void ratify()}>
+                Ratify style
               </button>
-              <button onClick={() => void ratify()}>Ratify style</button>
             </div>
           </section>
         </>
       ) : null}
 
-      <section className="panel">
-        <div className="panel-header">
-          <h2>Patch log</h2>
-          <button
-            onClick={() => void reconcileNow()}
-            disabled={!documentState || !readDeckCapability.supported}
-            title={!readDeckCapability.supported ? readDeckCapability.reason : undefined}
-          >
-            Reconcile now
-          </button>
-        </div>
-        <p className="muted">
-          Restore before is available only for records currently reconciled as applied, and restores safe fields only.
-        </p>
-        <div className="grid patch-log-summary">
-          <span>Total patch records</span>
-          <strong>{documentState?.patchLog.length ?? 0}</strong>
-          <span>Applied</span>
-          <strong>{patchStateCounts.applied}</strong>
-          <span>Reverted externally</span>
-          <strong>{patchStateCounts.reverted_externally}</strong>
-          <span>Drifted</span>
-          <strong>{patchStateCounts.drifted}</strong>
-          <span>Missing target</span>
-          <strong>{patchStateCounts.missing_target}</strong>
-          <span>Last reconciled</span>
-          <strong>{lastReconciledIso || "-"}</strong>
-          <span>Ratify status</span>
-          <strong>
-            {ratifyState
-              ? `Deck ratified at ${ratifyState.ratifiedAtIso}`
-              : "Not ratified"}
-          </strong>
-        </div>
+      {totalPatches > 0 ? (
+        <section className="panel">
+          {!devMode ? (
+            <>
+              <div className="patch-log-compact">
+                <span className="patch-log-compact__status">
+                  <span
+                    className={`patch-log-compact__dot ${patchLogHasIssues ? "patch-log-compact__dot--warn" : "patch-log-compact__dot--pass"}`}
+                    aria-hidden
+                  />
+                  <span>
+                    {patchStateCounts.applied} patches applied
+                    {patchLogHasIssues
+                      ? ` · ${patchStateCounts.reverted_externally} reverted · ${patchStateCounts.drifted} drifted · ${patchStateCounts.missing_target} missing`
+                      : ""}
+                  </span>
+                </span>
+                <button
+                  type="button"
+                  className="btn-ghost"
+                  onClick={() => void reconcileNow()}
+                  disabled={!documentState || !readDeckCapability.supported}
+                  title={!readDeckCapability.supported ? readDeckCapability.reason : undefined}
+                >
+                  Reconcile
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="panel-header">
+                <h2>Patch log</h2>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() => void reconcileNow()}
+                  disabled={!documentState || !readDeckCapability.supported}
+                  title={!readDeckCapability.supported ? readDeckCapability.reason : undefined}
+                >
+                  Reconcile now
+                </button>
+              </div>
+              <p className="muted">
+                Restore before is available only for records currently reconciled as applied, and restores safe fields only.
+              </p>
+              <div className="grid patch-log-summary">
+                <span>Total patch records</span>
+                <strong>{documentState?.patchLog.length ?? 0}</strong>
+                <span>Applied</span>
+                <strong>{patchStateCounts.applied}</strong>
+                <span>Reverted externally</span>
+                <strong>{patchStateCounts.reverted_externally}</strong>
+                <span>Drifted</span>
+                <strong>{patchStateCounts.drifted}</strong>
+                <span>Missing target</span>
+                <strong>{patchStateCounts.missing_target}</strong>
+                <span>Last reconciled</span>
+                <strong>{lastReconciledIso || "-"}</strong>
+                <span>Ratify status</span>
+                <strong>
+                  {ratifyState ? `Deck ratified at ${ratifyState.ratifiedAtIso}` : "Not ratified"}
+                </strong>
+              </div>
 
-        {patchLogGroups.length === 0 ? (
-          <p className="muted">No patch records yet. Run clean up and apply safe patches to populate this log.</p>
-        ) : devMode ? (
-          <div className="patch-log-groups">
-            {patchLogGroups.map((group, groupIndex) => (
-              <article className="patch-log-group" key={`${group.appliedAtIso}-${groupIndex}`}>
-                <h3>
-                  <code>{group.appliedAtIso}</code> ({group.records.length})
-                </h3>
-                <ul className="patch-log-list">
-                  {group.records.map((record, recordIndex) => (
-                    <li className="patch-log-item" key={`${record.id}-${record.findingId}-${recordIndex}`}>
-                      {(() => {
-                        const originalRecordIndex = documentState ? documentState.patchLog.indexOf(record) : -1;
-                        const restoreDisabledReason =
-                          originalRecordIndex < 0
-                            ? "Restore is unavailable because this patch record is out of date."
-                            : getRestoreUiDisabledReason(
-                                record,
-                                applyPatchCapability.supported,
-                                applyPatchCapability.reason
+              {patchLogGroups.length === 0 ? (
+                <p className="muted">No patch records yet. Run clean up and apply safe patches to populate this log.</p>
+              ) : (
+                <div className="patch-log-groups">
+                  {patchLogGroups.map((group, groupIndex) => (
+                    <article className="patch-log-group" key={`${group.appliedAtIso}-${groupIndex}`}>
+                      <h3>
+                        <code>{group.appliedAtIso}</code> ({group.records.length})
+                      </h3>
+                      <ul className="patch-log-list">
+                        {group.records.map((record, recordIndex) => (
+                          <li className="patch-log-item" key={`${record.id}-${record.findingId}-${recordIndex}`}>
+                            {(() => {
+                              const originalRecordIndex = documentState ? documentState.patchLog.indexOf(record) : -1;
+                              const restoreDisabledReason =
+                                originalRecordIndex < 0
+                                  ? "Restore is unavailable because this patch record is out of date."
+                                  : getRestoreUiDisabledReason(
+                                      record,
+                                      applyPatchCapability.supported,
+                                      applyPatchCapability.reason
+                                    );
+                              const restoreDisabled = originalRecordIndex < 0 || Boolean(restoreDisabledReason);
+
+                              return (
+                                <>
+                                  <div className="patch-log-row">
+                                    <span className={`reconcile-badge reconcile-${record.reconcileState}`}>
+                                      {record.reconcileState}
+                                    </span>
+                                    <code>
+                                      {record.targetFingerprint.slideId}:{record.targetFingerprint.objectId}
+                                    </code>
+                                  </div>
+                                  <div className="patch-log-meta">
+                                    <span>
+                                      finding <code>{record.findingId}</code>
+                                    </span>
+                                    <span>
+                                      patch <code>{record.id}</code>
+                                    </span>
+                                    <span>
+                                      at <code>{record.appliedAtIso}</code>
+                                    </span>
+                                  </div>
+                                  <div className="patch-log-actions">
+                                    <button
+                                      type="button"
+                                      className="btn-ghost btn-sm"
+                                      onClick={() => void restoreBefore(originalRecordIndex)}
+                                      disabled={restoreDisabled}
+                                      title={restoreDisabledReason}
+                                    >
+                                      Restore before
+                                    </button>
+                                    {restoreDisabledReason ? (
+                                      <span className="restore-disabled-reason">{restoreDisabledReason}</span>
+                                    ) : null}
+                                  </div>
+                                </>
                               );
-                        const restoreDisabled = originalRecordIndex < 0 || Boolean(restoreDisabledReason);
-
-                        return (
-                          <>
-                            <div className="patch-log-row">
-                              <span className={`reconcile-badge reconcile-${record.reconcileState}`}>{record.reconcileState}</span>
-                              <code>
-                                {record.targetFingerprint.slideId}:{record.targetFingerprint.objectId}
-                              </code>
-                            </div>
-                            <div className="patch-log-meta">
-                              <span>
-                                finding <code>{record.findingId}</code>
-                              </span>
-                              <span>
-                                patch <code>{record.id}</code>
-                              </span>
-                              <span>
-                                at <code>{record.appliedAtIso}</code>
-                              </span>
-                            </div>
-                            <div className="patch-log-actions">
-                              <button
-                                className="secondary-button"
-                                onClick={() => void restoreBefore(originalRecordIndex)}
-                                disabled={restoreDisabled}
-                                title={restoreDisabledReason}
-                              >
-                                Restore before
-                              </button>
-                              {restoreDisabledReason ? <span className="restore-disabled-reason">{restoreDisabledReason}</span> : null}
-                            </div>
-                          </>
-                        );
-                      })()}
-                    </li>
+                            })()}
+                          </li>
+                        ))}
+                      </ul>
+                    </article>
                   ))}
-                </ul>
-              </article>
-            ))}
-          </div>
-        ) : (
-          <p className="muted">Enable Dev mode to see patch-level details and restore actions.</p>
-        )}
-      </section>
+                </div>
+              )}
+            </>
+          )}
+        </section>
+      ) : null}
 
-      {message ? <footer className="panel info">{message}</footer> : null}
+      {message ? (
+        <footer
+          className="message-toast"
+          role={messageLooksPersistent(message) ? "alert" : "status"}
+          aria-live={messageLooksPersistent(message) ? "assertive" : "polite"}
+        >
+          <span className="message-toast__text">{message}</span>
+          <button
+            type="button"
+            className="btn-ghost btn-sm message-toast__dismiss"
+            onClick={() => setMessage("")}
+          >
+            Dismiss
+          </button>
+        </footer>
+      ) : null}
     </main>
   );
 }

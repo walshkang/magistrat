@@ -8,6 +8,13 @@ const RISK_BADGE_CLASS: Record<Finding["risk"], string> = {
   manual: "risk-badge risk-badge--manual"
 };
 
+function findingCardModifierClass(finding: Finding): string {
+  if (finding.coverage === "NOT_ANALYZED") {
+    return "finding-card--not-analyzed";
+  }
+  return `finding-card--${finding.severity}`;
+}
+
 export interface FindingCardProps {
   finding: Finding;
   onApply?: () => void;
@@ -16,18 +23,17 @@ export interface FindingCardProps {
 export function FindingCard({ finding, onApply }: FindingCardProps) {
   const { devMode } = useDevMode();
   const translated = translateFinding(finding);
+  const modifier = findingCardModifierClass(finding);
+  const applyButtonClass = finding.risk === "safe" ? "btn-primary btn-sm" : "btn-secondary btn-sm";
 
   return (
-    <article className="finding-card">
+    <article className={`finding-card ${modifier}`}>
       <div className="finding-card__header">
         <h3 className="finding-card__title">{translated.title}</h3>
         <span className={RISK_BADGE_CLASS[finding.risk]}>{translated.riskLabel}</span>
       </div>
 
-      <details className="finding-card__details">
-        <summary className="finding-card__summary">Description</summary>
-        <p className="finding-card__description">{translated.description}</p>
-      </details>
+      <p className="finding-card__description">{translated.description}</p>
 
       {devMode ? (
         <div className="finding-card__dev muted">
@@ -54,7 +60,7 @@ export function FindingCard({ finding, onApply }: FindingCardProps) {
 
       {translated.actionLabel !== null && onApply ? (
         <div className="finding-card__actions">
-          <button type="button" onClick={onApply}>
+          <button type="button" className={applyButtonClass} onClick={onApply}>
             {translated.actionLabel}
           </button>
         </div>

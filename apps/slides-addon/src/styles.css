@@ -720,6 +720,58 @@ li {
   flex-shrink: 0;
 }
 
+/* —— Alignment Score —— */
+.alignment-score {
+  padding: 12px;
+  background: var(--surface-card);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+  margin-bottom: 10px;
+}
+.alignment-score__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 6px;
+}
+.alignment-score__label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.alignment-score__value {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+.alignment-score__bar {
+  height: 6px;
+  background: var(--surface-inset);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.alignment-score__fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.4s ease;
+}
+.alignment-score__fill--good {
+  background: var(--status-pass);
+}
+.alignment-score__fill--fair {
+  background: var(--status-warn);
+}
+.alignment-score__fill--poor {
+  background: var(--status-error);
+}
+.alignment-score__detail {
+  margin: 6px 0 0;
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
 @media (min-width: 760px) {
   .shell {
     max-width: 760px;

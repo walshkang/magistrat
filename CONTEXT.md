@@ -1,26 +1,22 @@
 # Magistrat Context
 
 ## Active Phase
-- Phase 1: "Translate" — Consumer-Grade Findings UI
+- Phase 2B: "Coverage" — Rule Coverage Push (8→16 rules)
 
 ## Active Epic
-- App.tsx decomposition (779 lines → ~200 lines of orchestration)
-- FindingTranslator: **DONE** — `packages/compiler-core/src/finding-translator.ts` + tests (11 tests, 98.56% coverage)
-- DevMode context + toggle component
-- React component extraction: FindingsPanel, FindingCard, SlideGroup
-- Hook extraction: useAnalysis, usePatchLog
-- Design tokens CSS
+- Next: scope Phase 2B rule implementations
+- Stitch screens available for Phase 3+4 future state reference
 
 ## Immediate Blocker
-- None. Phase 1 deep-tier contracts complete. Bounded implementation can proceed.
+- None.
 
 ## Roadmap (approved 2026-03-28)
 See `~/.claude/plans/keen-fluttering-sparrow.md` for full plan.
 
 | Phase | Appetite | Status |
 |-------|----------|--------|
-| 1. Translate (consumer UI) | 2 wk | **In progress** — translator done, components next |
-| 2A. Alignment Score | 2 wk | Queued |
+| 1. Translate (consumer UI) | 2 wk | **Complete** |
+| 2A. Alignment Score | 2 wk | **Complete** |
 | 2B. Rule Coverage (8→16) | 4 wk | Queued |
 | 3. Interactive Minimap | 2 wk | Queued |
 | 4. Exceptions / Ignore | 1 wk | Queued |
