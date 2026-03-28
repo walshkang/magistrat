@@ -3,6 +3,18 @@
 **Appetite:** 6 weeks
 **Value:** Enterprise completeness — 24/24 rules, Office write mode, taskpane UI parity
 
+## Pre-slice: "Not Analyzed" UX Clarity (quick win, do first)
+
+The current "Not analyzed" findings lump together three different situations:
+1. **Can't inspect** — object type unsupported, grouped, autofit, API limitation
+2. **Can't match** — low role confidence, missing style map entry, ambiguous text
+3. **No rule yet** — we simply don't have a check for this pattern
+
+Users see a wall of "Not analyzed" and think the tool is broken, not that it's honestly scoping. Fix:
+- Split NOT_ANALYZED translator messages into these three buckets
+- Add a brief "what Magistrat checks" summary to the empty/all-clear state
+- Consider collapsing NOT_ANALYZED items by default (show count, expand on click)
+
 ## Slices
 
 ### 6A: Tolerance Config (1 week)
@@ -56,3 +68,53 @@ Week 5-6:   6E (Taskpane UI Parity)
 - compiler-core coverage >= 90%
 - Office SAFE functional
 - Taskpane matches sidebar
+
+---
+
+## Post-v1 Roadmap: Customizable Rulesets + Exemplar Inference
+
+These are post-Phase 6 features surfaced during real-doc testing (2026-03-28).
+
+### Phase 7A: Exemplar-Driven Rule Inference
+**Problem:** Users scan a deck and get findings, but Magistrat's rules are fixed. Real decks have house styles that don't map 1:1 to the playbook — breadcrumb positioning, logo placement, custom bullet styles.
+
+**Approach:**
+1. After scanning an exemplar slide, Magistrat infers "candidate best practices" from what it observes (font patterns, position bands, spacing, color palette)
+2. Present these as a checklist: "We detected these patterns in your exemplar — which should be enforced?"
+3. User confirms/adjusts, creating a custom `RuleProfile` stored in document state
+4. Subsequent scans check against the profile, not just the hardcoded playbook
+
+**Value:** Magistrat adapts to each team's style guide instead of imposing one.
+
+### Phase 7B: Custom Rule Editor
+**Problem:** Power users want to add rules the exemplar can't express (e.g., "logo must be in bottom-right quadrant", "no text smaller than 10pt anywhere").
+
+**Approach:**
+- Simple constraint builder UI: pick a property (font size, position, color) + operator (equals, within range, matches palette) + value
+- Stored as `CustomRule[]` in document state alongside `RuleProfile`
+- Evaluated in `runChecks` alongside built-in rules
+
+### Phase 7C: Rule Profiles as Templates
+- Export/import `RuleProfile` as JSON
+- Share across presentations ("Company X compliance profile")
+- Eventually: team-level profiles stored externally
+
+### Phase 7D: Slide Master / Layout Generation
+**Problem:** Magistrat detects drift after the fact. Slide masters prevent drift at the source — but creating them is tedious manual work. Most teams have an exemplar deck but no formal master.
+
+**Approach:**
+1. Scan exemplar slide → extract full style map + position bands per role
+2. Generate a slide master/layout with typed placeholders that bake in the exemplar's formatting:
+   - Title placeholder at exact position/size with correct font/size/color
+   - Body/bullet placeholders with correct indent levels, spacing, glyph
+   - Footer/logo zones at correct positions
+   - Color palette from exemplar fills and text colors
+3. **Google Slides:** Use Slides API (not Apps Script) to create/update master via batch requests
+4. **PowerPoint:** Generate a .pptx slide layout via Open XML SDK or python-pptx
+5. User applies the generated master to their deck → new slides auto-conform
+
+**Value:** Shifts from "detect and fix" to "prevent." Magistrat becomes the bridge between "we have an exemplar deck" and "we have an enforced brand template." Findings drop dramatically because the master does the enforcement.
+
+**Dependency:** Needs the style map + position band extraction from Phase 6A/6B. The generation step is new infrastructure but the analysis is already there.
+
+**Risk:** Slides API (not Apps Script SlidesApp) is needed for master manipulation — requires OAuth scope escalation and possibly a backend. PowerPoint is more tractable via file generation.

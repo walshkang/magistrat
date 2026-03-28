@@ -30,7 +30,8 @@ function onHomepage() {
 function showSidebar() {
   var html = HtmlService.createHtmlOutputFromFile("sidebar")
     .setTitle("Magistrat")
-    .setWidth(320);
+    .setWidth(320)
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
   SlidesApp.getUi().showSidebar(html);
 }
 
@@ -88,11 +89,15 @@ function readPresentation() {
         if (textRange) {
           element.text = extractTextInfo(textRange);
         }
-        var fill = shape.getFill();
-        if (fill && fill.getSolidFill()) {
-          var solidFill = fill.getSolidFill();
-          element.fillColor = solidFill.getColor().asRgbColor().asHexString();
-          element.fillAlpha = solidFill.getAlpha();
+        try {
+          var fill = shape.getFill();
+          if (fill && fill.getSolidFill()) {
+            var solidFill = fill.getSolidFill();
+            element.fillColor = solidFill.getColor().asRgbColor().asHexString();
+            element.fillAlpha = solidFill.getAlpha();
+          }
+        } catch (e) {
+          // Theme fills can't be converted to RGB — skip
         }
       }
 
@@ -117,15 +122,21 @@ function extractTextInfo(textRange) {
   for (var i = 0; i < textRuns.length; i++) {
     var run = textRuns[i];
     var style = run.getTextStyle();
+    var fontColor = undefined;
+    try {
+      var fg = style.getForegroundColor();
+      if (fg) fontColor = fg.asRgbColor().asHexString();
+    } catch (e) {
+      // Theme colors can't be converted to RGB directly — skip
+    }
+
     runs.push({
       text: run.asString(),
       fontFamily: style.getFontFamily(),
       fontSizePt: style.getFontSize(),
       bold: style.isBold(),
       italic: style.isItalic(),
-      fontColor: style.getForegroundColor()
-        ? style.getForegroundColor().asRgbColor().asHexString()
-        : undefined,
+      fontColor: fontColor,
     });
   }
 

@@ -14,21 +14,23 @@
     // Wire the Google Apps Script bridge so the React app can call
     // server-side functions via __MAGISTRAT_GOOGLE_BRIDGE__.
     window.__MAGISTRAT_GOOGLE_BRIDGE__ = {
+      // These two are called synchronously by the provider factory —
+      // return plain objects, no server round-trip needed.
       getHostInfo: function () {
-        return new Promise(function (resolve, reject) {
-          google.script.run
-            .withSuccessHandler(resolve)
-            .withFailureHandler(reject)
-            .getHostInfo();
-        });
+        return {
+          host: "google_slides",
+          platform: "web",
+          documentId: undefined
+        };
       },
       getCapabilities: function () {
-        return new Promise(function (resolve, reject) {
-          google.script.run
-            .withSuccessHandler(resolve)
-            .withFailureHandler(reject)
-            .getCapabilities();
-        });
+        return {
+          readDeckSnapshot: true,
+          applyPatchOps: true,
+          selectObject: false,
+          documentStateCarrier: true,
+          revisionGuard: false
+        };
       },
       readPresentation: function () {
         return new Promise(function (resolve, reject) {
