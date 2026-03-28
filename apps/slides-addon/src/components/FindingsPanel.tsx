@@ -8,6 +8,8 @@ export interface FindingsPanelProps {
   findings: Finding[];
   deck: DeckSnapshot | null;
   onApplyFinding?: (findingId: string) => void;
+  onIgnoreFinding?: (findingId: string) => void;
+  ignoredFindingIds?: ReadonlySet<string>;
 }
 
 export function groupBySlideId(items: Finding[]): Map<string, Finding[]> {
@@ -47,7 +49,13 @@ export function orderedSlideIdsForFindings(
   return [...fromDeck, ...orphans];
 }
 
-export function FindingsPanel({ findings, deck, onApplyFinding }: FindingsPanelProps) {
+export function FindingsPanel({
+  findings,
+  deck,
+  onApplyFinding,
+  onIgnoreFinding,
+  ignoredFindingIds
+}: FindingsPanelProps) {
   const { devMode } = useDevMode();
 
   const { slideGroups, notAnalyzedSection } = useMemo(() => {
@@ -88,6 +96,8 @@ export function FindingsPanel({ findings, deck, onApplyFinding }: FindingsPanelP
             slideLabel={slideLabelFor(deck, slideId, slideIndex)}
             findings={list}
             {...(onApplyFinding ? { onApplyFinding } : {})}
+            {...(onIgnoreFinding ? { onIgnoreFinding } : {})}
+            {...(ignoredFindingIds ? { ignoredFindingIds } : {})}
           />
         );
       })}
@@ -100,7 +110,9 @@ export function FindingsPanel({ findings, deck, onApplyFinding }: FindingsPanelP
               <FindingCard
                 key={finding.id}
                 finding={finding}
+                isIgnored={ignoredFindingIds?.has(finding.id) ?? false}
                 {...(onApplyFinding ? { onApply: () => onApplyFinding(finding.id) } : {})}
+                {...(onIgnoreFinding ? { onIgnore: () => onIgnoreFinding(finding.id) } : {})}
               />
             ))}
           </div>

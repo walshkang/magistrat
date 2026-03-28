@@ -56,7 +56,8 @@ export function createDefaultDocumentState(): DocumentStateV1 {
     schemaVersion: 1,
     lastUpdatedIso: new Date().toISOString(),
     findings: [],
-    patchLog: []
+    patchLog: [],
+    ignoredFindings: []
   };
 }
 
@@ -147,7 +148,8 @@ function migrateLegacyState(rawState: unknown, defaultState: DocumentStateV1): D
   return {
     ...baseState,
     ...(exemplar ? { exemplar } : {}),
-    ...(coverage ? { coverage } : {})
+    ...(coverage ? { coverage } : {}),
+    ignoredFindings: Array.isArray(state.ignoredFindings) ? state.ignoredFindings : defaultState.ignoredFindings
   };
 }
 

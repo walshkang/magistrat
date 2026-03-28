@@ -54,6 +54,15 @@ export interface CoverageSnapshot {
   continuityCoverage: number;
 }
 
+export interface IgnoredFinding {
+  /** The finding.id (stable hash — survives re-scans) */
+  findingId: string;
+  /** When the user ignored it */
+  ignoredAtIso: string;
+  /** Optional user-provided rationale */
+  note?: string;
+}
+
 export interface DocumentStateV1 {
   schemaVersion: 1;
   lastUpdatedIso: string;
@@ -63,4 +72,5 @@ export interface DocumentStateV1 {
   patchLog: PatchRecord[];
   ratify?: RatifyStamp;
   coverage?: CoverageSnapshot;
+  ignoredFindings: IgnoredFinding[];
 }

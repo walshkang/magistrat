@@ -1,11 +1,10 @@
 # Magistrat Context
 
 ## Active Phase
-- Phase 3: "Navigate" — Interactive Minimap + Per-Slide Fix
+- Phase 4: "Exceptions" — Ignore Workflow + Score Adjustment
 
 ## Active Epic
-- Next: scope Phase 3 (minimap, per-slide filtering, per-finding apply)
-- Stitch future-state screen available for reference (minimap + exceptions)
+- Next: scope Phase 4 (ignore action, score adjustment, exceptions panel)
 
 ## Immediate Blocker
 - None.
@@ -18,6 +17,7 @@ See `~/.claude/plans/keen-fluttering-sparrow.md` for full plan.
 | 1. Translate (consumer UI) | 2 wk | **Complete** |
 | 2A. Alignment Score | 2 wk | **Complete** |
 | 2B. Rule Coverage (8→16) + Trust Loop Polish | 4 wk | **Complete** — 16 rules, ratify UX, change history |
+| 3. Interactive Minimap | 2 wk | **Complete** — minimap, per-slide filtering, slide status |
 | 3. Interactive Minimap | 2 wk | Queued |
 | 4. Exceptions / Ignore | 1 wk | Queued |
 | 5. Ship (CI, deploy, reliability) | 2 wk | Queued |

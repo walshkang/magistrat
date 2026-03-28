@@ -1,8 +1,10 @@
-import { getDocumentId, getRuntimeStatus } from "@magistrat/google-adapter";
+import { computeAlignmentScore } from "@magistrat/compiler-core";
+import { getDocumentId, getRuntimeStatus, saveDocumentState } from "@magistrat/google-adapter";
 import type { DocumentStateV1 } from "@magistrat/shared-types";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AlignmentScoreBar } from "./components/AlignmentScoreBar.js";
 import { ChangeHistory } from "./components/ChangeHistory.js";
+import { ExceptionsPanel } from "./components/ExceptionsPanel.js";
 import { Minimap } from "./components/Minimap.js";
 import { DevModeToggle } from "./components/DevModeToggle.js";
 import { FindingsPanel } from "./components/FindingsPanel.js";
@@ -47,6 +49,62 @@ export function App() {
     readDeckCapability,
     applyPatchCapability
   });
+
+  const ignoredFindingIds = useMemo(
+    () => new Set((documentState?.ignoredFindings ?? []).map((ig) => ig.findingId)),
+    [documentState?.ignoredFindings]
+  );
+
+  const adjustedAlignmentScore = useMemo(() => {
+    if (!analysisState) {
+      return null;
+    }
+    return computeAlignmentScore(analysisState.findings, analysisState.coverage, ignoredFindingIds);
+  }, [analysisState, ignoredFindingIds]);
+
+  const ignoreFinding = useCallback(
+    (findingId: string) => {
+      if (!documentState) {
+        return;
+      }
+
+      const already = documentState.ignoredFindings.some((ig) => ig.findingId === findingId);
+      if (already) {
+        return;
+      }
+
+      const nextState: DocumentStateV1 = {
+        ...documentState,
+        ignoredFindings: [
+          ...documentState.ignoredFindings,
+          { findingId, ignoredAtIso: new Date().toISOString() }
+        ],
+        lastUpdatedIso: new Date().toISOString()
+      };
+
+      void saveDocumentState(nextState);
+      setDocumentState(nextState);
+    },
+    [documentState, setDocumentState]
+  );
+
+  const unignoreFinding = useCallback(
+    (findingId: string) => {
+      if (!documentState) {
+        return;
+      }
+
+      const nextState: DocumentStateV1 = {
+        ...documentState,
+        ignoredFindings: documentState.ignoredFindings.filter((ig) => ig.findingId !== findingId),
+        lastUpdatedIso: new Date().toISOString()
+      };
+
+      void saveDocumentState(nextState);
+      setDocumentState(nextState);
+    },
+    [documentState, setDocumentState]
+  );
 
   useEffect(() => {
     if (analysisState && !analysisState.stale) {
@@ -101,8 +159,9 @@ export function App() {
   }, [analysisState, deck]);
 
   const filteredActionableCount = useMemo(
-    () => filteredFindings.filter((f) => f.coverage === "ANALYZED").length,
-    [filteredFindings]
+    () =>
+      filteredFindings.filter((f) => f.coverage === "ANALYZED" && !ignoredFindingIds.has(f.id)).length,
+    [filteredFindings, ignoredFindingIds]
   );
 
   const canApplySafeFromSummary = Boolean(
@@ -111,10 +170,20 @@ export function App() {
   const canRunScan = Boolean(deck && documentState);
   const ratifyState = documentState?.ratify;
   const totalPatches = documentState?.patchLog.length ?? 0;
-  const analyzedFindingsCount = analysisState
-    ? analysisState.findings.filter((f) => f.coverage === "ANALYZED").length
-    : 0;
-  const canRatify = Boolean(analysisState && documentState && analyzedFindingsCount === 0);
+  const analyzedFindingsCount = useMemo(() => {
+    if (!analysisState) {
+      return 0;
+    }
+    return analysisState.findings.filter(
+      (f) => f.coverage === "ANALYZED" && !ignoredFindingIds.has(f.id)
+    ).length;
+  }, [analysisState, ignoredFindingIds]);
+
+  const canRatify = Boolean(
+    analysisState &&
+      documentState &&
+      analysisState.findings.filter((f) => f.coverage === "ANALYZED" && !ignoredFindingIds.has(f.id)).length === 0
+  );
 
   const findingsRiskCounts = useMemo(() => {
     if (!analysisState) {
@@ -124,7 +193,7 @@ export function App() {
     let caution = 0;
     let manual = 0;
     for (const f of filteredFindings) {
-      if (f.coverage !== "ANALYZED") {
+      if (f.coverage !== "ANALYZED" || ignoredFindingIds.has(f.id)) {
         continue;
       }
       if (f.risk === "safe") {
@@ -136,7 +205,7 @@ export function App() {
       }
     }
     return { safe, caution, manual };
-  }, [analysisState, filteredFindings]);
+  }, [analysisState, filteredFindings, ignoredFindingIds]);
 
   const exemplarSlideLabel =
     deck?.slides.find((s) => s.slideId === selectedExemplarSlideId)?.title ||
@@ -278,7 +347,7 @@ export function App() {
 
       {analysisState ? (
         <>
-          <AlignmentScoreBar score={analysisState.alignmentScore} />
+          {adjustedAlignmentScore ? <AlignmentScoreBar score={adjustedAlignmentScore} /> : null}
 
           {slideStatuses.length > 0 ? (
             <Minimap
@@ -397,9 +466,19 @@ export function App() {
               findings={filteredFindings}
               deck={deck}
               onApplyFinding={(id) => void applyForFinding(id)}
+              onIgnoreFinding={ignoreFinding}
+              ignoredFindingIds={ignoredFindingIds}
             />
           </section>
         </>
+      ) : null}
+
+      {(documentState?.ignoredFindings.length ?? 0) > 0 ? (
+        <ExceptionsPanel
+          ignoredFindings={documentState!.ignoredFindings}
+          findings={analysisState?.findings ?? documentState?.findings ?? []}
+          onUnignore={unignoreFinding}
+        />
       ) : null}
 
       {totalPatches > 0 ? (

@@ -126,4 +126,26 @@ describe("computeAlignmentScore", () => {
     expect(r.failingObjects).toBe(0);
     expect(r.score).toBe(100);
   });
+
+  it("excludes ignored finding ids from failing object count", () => {
+    const findings: Finding[] = [
+      baseFinding({ id: "f0", slideId: "s1", objectId: "o0" }),
+      baseFinding({ id: "f1", slideId: "s1", objectId: "o1" })
+    ];
+    const r = computeAlignmentScore(findings, baseCoverage({ analyzedObjects: 4 }), new Set(["f0"]));
+    expect(r.failingObjects).toBe(1);
+    expect(r.passingObjects).toBe(3);
+    expect(r.score).toBe(75);
+  });
+
+  it("ignoring all findings on an object makes that object pass", () => {
+    const findings: Finding[] = [
+      baseFinding({ id: "a", slideId: "s1", objectId: "o0" }),
+      baseFinding({ id: "b", ruleId: "BP-TYPO-002", slideId: "s1", objectId: "o0" })
+    ];
+    const r = computeAlignmentScore(findings, baseCoverage({ analyzedObjects: 8 }), new Set(["a", "b"]));
+    expect(r.failingObjects).toBe(0);
+    expect(r.passingObjects).toBe(8);
+    expect(r.score).toBe(100);
+  });
 });

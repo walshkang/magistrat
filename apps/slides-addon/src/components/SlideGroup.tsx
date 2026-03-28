@@ -7,9 +7,19 @@ export interface SlideGroupProps {
   slideLabel: string;
   findings: Finding[];
   onApplyFinding?: (findingId: string) => void;
+  onIgnoreFinding?: (findingId: string) => void;
+  ignoredFindingIds?: ReadonlySet<string>;
 }
 
-export function SlideGroup({ slideId, slideIndex, slideLabel, findings, onApplyFinding }: SlideGroupProps) {
+export function SlideGroup({
+  slideId,
+  slideIndex,
+  slideLabel,
+  findings,
+  onApplyFinding,
+  onIgnoreFinding,
+  ignoredFindingIds
+}: SlideGroupProps) {
   return (
     <details className="slide-group" open data-slide-id={slideId} data-slide-index={slideIndex}>
       <summary className="slide-group__summary">
@@ -21,7 +31,9 @@ export function SlideGroup({ slideId, slideIndex, slideLabel, findings, onApplyF
           <FindingCard
             key={finding.id}
             finding={finding}
+            isIgnored={ignoredFindingIds?.has(finding.id) ?? false}
             {...(onApplyFinding ? { onApply: () => onApplyFinding(finding.id) } : {})}
+            {...(onIgnoreFinding ? { onIgnore: () => onIgnoreFinding(finding.id) } : {})}
           />
         ))}
       </div>

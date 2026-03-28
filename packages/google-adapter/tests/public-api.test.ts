@@ -58,6 +58,7 @@ describe("google adapter public api", () => {
       lastUpdatedIso: "2026-02-18T00:00:00.000Z",
       findings: [],
       patchLog: [],
+      ignoredFindings: [],
       exemplar: {
         slideId: "slide-1",
         mode: "normalized" as unknown as "token_normalized",

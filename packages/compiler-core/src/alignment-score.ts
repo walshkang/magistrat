@@ -32,7 +32,11 @@ function objectKey(slideId: string, objectId: string): string {
  * affect this score, so the denominator stays consistent with coverage.analyzedObjects
  * (supported shapes only). A future contract could fold those in explicitly.
  */
-export function computeAlignmentScore(findings: Finding[], coverage: CoverageSnapshot): AlignmentScore {
+export function computeAlignmentScore(
+  findings: Finding[],
+  coverage: CoverageSnapshot,
+  ignoredFindingIds?: ReadonlySet<string>
+): AlignmentScore {
   const analyzedObjects = coverage.analyzedObjects;
 
   if (analyzedObjects === 0) {
@@ -47,6 +51,9 @@ export function computeAlignmentScore(findings: Finding[], coverage: CoverageSna
   const failingKeys = new Set<string>();
   for (const f of findings) {
     if (f.coverage !== "ANALYZED" || f.objectId === undefined) {
+      continue;
+    }
+    if (ignoredFindingIds?.has(f.id)) {
       continue;
     }
     failingKeys.add(objectKey(f.slideId, f.objectId));

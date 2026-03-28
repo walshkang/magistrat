@@ -952,6 +952,67 @@ li {
   font-size: 11px;
 }
 
+/* —— Ignored Finding —— */
+.finding-card--ignored {
+  opacity: 0.5;
+}
+.finding-card__ignored-badge {
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  padding: 1px 6px;
+  background: var(--surface-inset);
+  border-radius: 4px;
+}
+
+/* —— Exceptions Panel —— */
+.exceptions-panel {
+  padding: 12px;
+  background: var(--surface-card);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+}
+.exceptions-panel__title {
+  font-size: 13px;
+  font-weight: 600;
+  margin: 0 0 2px;
+  color: var(--text-primary);
+}
+.exceptions-panel__subtitle {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  margin: 0 0 10px;
+}
+.exceptions-panel__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.exceptions-panel__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.exceptions-panel__label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-primary);
+  margin: 0;
+}
+.exceptions-panel__meta {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  margin: 0;
+}
+.exceptions-panel__stale {
+  margin: 10px 0 0;
+  font-size: 11px;
+}
+
 @media (min-width: 760px) {
   .shell {
     max-width: 760px;

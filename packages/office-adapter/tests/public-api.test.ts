@@ -45,6 +45,7 @@ describe("office adapter public api", () => {
       lastUpdatedIso: "2026-02-17T00:00:00.000Z",
       findings: [],
       patchLog: [],
+      ignoredFindings: [],
       exemplar: {
         slideId: "slide-2",
         mode: "normalized" as unknown as "token_normalized",
