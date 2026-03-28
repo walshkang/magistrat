@@ -2,6 +2,9 @@
 
 This file is the single source of truth for how we build here. It applies to humans and all AI agents.
 
+## Platform Context
+Google Slides sidebar primary surface for v1. Office task-pane parity track maintained for enterprise compatibility.
+
 ## Read First
 - `AGENTS.md` (this file) — operating rules, invariants, multi-agent routing
 - `DESIGN.md` — UI/UX source of truth (layout, interaction, visual system, component inventory)

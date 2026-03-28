@@ -3,6 +3,9 @@
 ## Vision
 Magistrat should feel like magic—like reading your boss's mind with edits and always ensuring that things work. It provides an automated, trust-first workflow to ensure presentation decks (starting with Google Slides) adhere perfectly to an established "exemplar" style, while offering a professional, rewarding, and highly contextual user experience.
 
+## Primary Platform
+Primary platform is the Google Slides Sidebar Add-on. Office task-pane support is maintained as a parity track.
+
 ## Target Audience
 Professionals (consultants, executives, marketers) who spend significant time formatting slides and ensuring brand/style consistency across massive decks, but do not have the time or desire to debug raw layout properties.
 
