@@ -1,0 +1,214 @@
+/**
+ * Magistrat Google Slides Add-on — Apps Script entry point.
+ *
+ * This file is pushed to Google via clasp. It serves the Vite-built
+ * sidebar and provides the bridge that the React app calls through
+ * __MAGISTRAT_GOOGLE_BRIDGE__.
+ */
+
+function onOpen() {
+  SlidesApp.getUi()
+    .createMenu("Magistrat")
+    .addItem("Open sidebar", "showSidebar")
+    .addToUi();
+}
+
+function onHomepage() {
+  return CardService.newCardBuilder()
+    .addSection(
+      CardService.newCardSection().addWidget(
+        CardService.newTextButton()
+          .setText("Open Magistrat")
+          .setOnClickAction(
+            CardService.newAction().setFunctionName("showSidebar")
+          )
+      )
+    )
+    .build();
+}
+
+function showSidebar() {
+  var html = HtmlService.createHtmlOutputFromFile("sidebar")
+    .setTitle("Magistrat")
+    .setWidth(320);
+  SlidesApp.getUi().showSidebar(html);
+}
+
+// ── Bridge functions called from the sidebar via google.script.run ──
+
+function getHostInfo() {
+  var presentation = SlidesApp.getActivePresentation();
+  return {
+    host: "google_slides",
+    platform: "web",
+    documentId: presentation ? presentation.getId() : undefined,
+  };
+}
+
+function getCapabilities() {
+  return {
+    readDeckSnapshot: true,
+    applyPatchOps: true,
+    selectObject: false,
+    documentStateCarrier: true,
+    revisionGuard: false,
+  };
+}
+
+function readPresentation() {
+  var presentation = SlidesApp.getActivePresentation();
+  var slides = presentation.getSlides();
+  var result = {
+    documentId: presentation.getId(),
+    slides: [],
+  };
+
+  for (var i = 0; i < slides.length; i++) {
+    var slide = slides[i];
+    var pageElements = slide.getPageElements();
+    var elements = [];
+
+    for (var j = 0; j < pageElements.length; j++) {
+      var el = pageElements[j];
+      var element = {
+        objectId: el.getObjectId(),
+        elementType: el.getPageElementType().toString(),
+        geometry: {
+          left: el.getLeft(),
+          top: el.getTop(),
+          width: el.getWidth(),
+          height: el.getHeight(),
+          rotation: el.getRotation(),
+        },
+      };
+
+      if (el.getPageElementType() === SlidesApp.PageElementType.SHAPE) {
+        var shape = el.asShape();
+        var textRange = shape.getText();
+        if (textRange) {
+          element.text = extractTextInfo(textRange);
+        }
+        var fill = shape.getFill();
+        if (fill && fill.getSolidFill()) {
+          var solidFill = fill.getSolidFill();
+          element.fillColor = solidFill.getColor().asRgbColor().asHexString();
+          element.fillAlpha = solidFill.getAlpha();
+        }
+      }
+
+      elements.push(element);
+    }
+
+    result.slides.push({
+      slideId: slide.getObjectId(),
+      index: i,
+      pageElements: elements,
+    });
+  }
+
+  return result;
+}
+
+function extractTextInfo(textRange) {
+  var runs = [];
+  var paragraphs = [];
+  var textRuns = textRange.getRuns();
+
+  for (var i = 0; i < textRuns.length; i++) {
+    var run = textRuns[i];
+    var style = run.getTextStyle();
+    runs.push({
+      text: run.asString(),
+      fontFamily: style.getFontFamily(),
+      fontSizePt: style.getFontSize(),
+      bold: style.isBold(),
+      italic: style.isItalic(),
+      fontColor: style.getForegroundColor()
+        ? style.getForegroundColor().asRgbColor().asHexString()
+        : undefined,
+    });
+  }
+
+  var paras = textRange.getParagraphs();
+  for (var j = 0; j < paras.length; j++) {
+    var para = paras[j];
+    var paraStyle = para.getRange().getParagraphStyle();
+    paragraphs.push({
+      level: paraStyle.getIndentStart() ? 1 : 0,
+      lineSpacing: paraStyle.getLineSpacing(),
+      text: para.getRange().asString(),
+    });
+  }
+
+  return { runs: runs, paragraphs: paragraphs };
+}
+
+// ── Document state carrier (stored in document properties) ──
+
+var STATE_KEY = "magistrat_state";
+
+function getDocumentCarrier() {
+  var props = PropertiesService.getDocumentProperties();
+  return props.getProperty(STATE_KEY) || "";
+}
+
+function setDocumentCarrier(content) {
+  var props = PropertiesService.getDocumentProperties();
+  props.setProperty(STATE_KEY, content);
+}
+
+// ── Mutation apply (SAFE mode) ──
+
+function applyMutations(mutations, options) {
+  var presentation = SlidesApp.getActivePresentation();
+
+  for (var i = 0; i < mutations.length; i++) {
+    var mutation = mutations[i];
+    var slide = findSlideById(presentation, mutation.slideId);
+    if (!slide) continue;
+
+    var element = findElementById(slide, mutation.objectId);
+    if (!element) continue;
+
+    applyMutation(element, mutation);
+  }
+
+  return { revisionId: undefined };
+}
+
+function findSlideById(presentation, slideId) {
+  var slides = presentation.getSlides();
+  for (var i = 0; i < slides.length; i++) {
+    if (slides[i].getObjectId() === slideId) return slides[i];
+  }
+  return null;
+}
+
+function findElementById(slide, objectId) {
+  var elements = slide.getPageElements();
+  for (var i = 0; i < elements.length; i++) {
+    if (elements[i].getObjectId() === objectId) return elements[i];
+  }
+  return null;
+}
+
+function applyMutation(element, mutation) {
+  if (element.getPageElementType() !== SlidesApp.PageElementType.SHAPE) return;
+
+  var shape = element.asShape();
+  var fields = mutation.fields;
+
+  if (fields.fontFamily || fields.fontSizePt || fields.bold !== undefined || fields.italic !== undefined || fields.fontColor) {
+    var textRange = shape.getText();
+    if (!textRange) return;
+    var style = textRange.getTextStyle();
+
+    if (fields.fontFamily) style.setFontFamily(fields.fontFamily);
+    if (fields.fontSizePt) style.setFontSize(fields.fontSizePt);
+    if (fields.bold !== undefined) style.setBold(fields.bold);
+    if (fields.italic !== undefined) style.setItalic(fields.italic);
+    if (fields.fontColor) {
+      style.setForegroundColor(fields.fontColor);
+    }
+  }
+}

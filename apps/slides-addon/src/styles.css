@@ -165,6 +165,28 @@ button {
   font-size: 11px;
 }
 
+/* —— Error boundary —— */
+.error-boundary-fallback {
+  min-height: 100vh;
+  padding: 24px 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 16px;
+  background: var(--surface-app);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  margin: 12px;
+  box-shadow: var(--shadow-sm);
+}
+
+.error-boundary-fallback__title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
 .dev-mode-toggle[aria-pressed="true"] {
   background: color-mix(in srgb, var(--accent) 12%, transparent);
   color: var(--text-primary);

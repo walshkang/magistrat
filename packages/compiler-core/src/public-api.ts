@@ -11,3 +11,5 @@ export { buildStyleSignature } from "./style-signature.js";
 export { buildStyleMap } from "./style-map.js";
 export { translateFinding } from "./finding-translator.js";
 export type { TranslatedFinding } from "./finding-translator.js";
+export { emitEvent, setTelemetrySink, resetTelemetrySink } from "./telemetry.js";
+export type { TelemetryEvent, TelemetrySink } from "./telemetry.js";

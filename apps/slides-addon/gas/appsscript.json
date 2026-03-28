@@ -1,0 +1,20 @@
+{
+  "timeZone": "America/New_York",
+  "dependencies": {},
+  "exceptionLogging": "STACKDRIVER",
+  "runtimeVersion": "V8",
+  "addOns": {
+    "common": {
+      "name": "Magistrat",
+      "logoUrl": "https://raw.githubusercontent.com/anthropics/magistrat/main/docs/logo-placeholder.png",
+      "layoutProperties": {
+        "primaryColor": "#4285F4"
+      }
+    },
+    "slides": {
+      "homepageTrigger": {
+        "runFunction": "onHomepage"
+      }
+    }
+  }
+}

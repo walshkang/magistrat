@@ -1,10 +1,10 @@
 # Magistrat Context
 
 ## Active Phase
-- Phase 5: "Ship" — CI, Deployment, Reliability
+- Phase 5: "Ship" — **Complete**
 
 ## Active Epic
-- Next: scope Phase 5 (GitHub Actions CI, Google deployment, error boundary, telemetry, state migration)
+- Next: Phase 6 "Complete" (24 rules, Office SAFE write, taskpane parity, tolerance config)
 
 ## Immediate Blocker
 - None.
@@ -19,9 +19,7 @@ See `~/.claude/plans/keen-fluttering-sparrow.md` for full plan.
 | 2B. Rule Coverage (8→16) + Trust Loop Polish | 4 wk | **Complete** — 16 rules, ratify UX, change history |
 | 3. Interactive Minimap | 2 wk | **Complete** — minimap, per-slide filtering, slide status |
 | 4. Exceptions / Ignore | 1 wk | **Complete** — ignore workflow, score adjustment, exceptions panel |
-| 3. Interactive Minimap | 2 wk | Queued |
-| 4. Exceptions / Ignore | 1 wk | Queued |
-| 5. Ship (CI, deploy, reliability) | 2 wk | Queued |
+| 5. Ship (CI, deploy, reliability) | 2 wk | **Complete** — CI gate, ErrorBoundary, telemetry, state migration, clasp deploy, office parity audit |
 | 6. Complete (24 rules, Office write) | 6 wk | Queued |
 
 ## Decisions Locked For v1

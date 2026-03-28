@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    html, body, #root { margin: 0; padding: 0; height: 100%; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script>
+    // Wire the Google Apps Script bridge so the React app can call
+    // server-side functions via __MAGISTRAT_GOOGLE_BRIDGE__.
+    window.__MAGISTRAT_GOOGLE_BRIDGE__ = {
+      getHostInfo: function () {
+        return new Promise(function (resolve, reject) {
+          google.script.run
+            .withSuccessHandler(resolve)
+            .withFailureHandler(reject)
+            .getHostInfo();
+        });
+      },
+      getCapabilities: function () {
+        return new Promise(function (resolve, reject) {
+          google.script.run
+            .withSuccessHandler(resolve)
+            .withFailureHandler(reject)
+            .getCapabilities();
+        });
+      },
+      readPresentation: function () {
+        return new Promise(function (resolve, reject) {
+          google.script.run
+            .withSuccessHandler(resolve)
+            .withFailureHandler(reject)
+            .readPresentation();
+        });
+      },
+      applyMutations: function (mutations, options) {
+        return new Promise(function (resolve, reject) {
+          google.script.run
+            .withSuccessHandler(resolve)
+            .withFailureHandler(reject)
+            .applyMutations(mutations, options);
+        });
+      },
+      getDocumentCarrier: function () {
+        return new Promise(function (resolve, reject) {
+          google.script.run
+            .withSuccessHandler(resolve)
+            .withFailureHandler(reject)
+            .getDocumentCarrier();
+        });
+      },
+      setDocumentCarrier: function (content) {
+        return new Promise(function (resolve, reject) {
+          google.script.run
+            .withSuccessHandler(resolve)
+            .withFailureHandler(reject)
+            .setDocumentCarrier(content);
+        });
+      },
+    };
+  </script>
+
+  <!-- INJECT_VITE_BUNDLE -->
+  <!-- The deploy script replaces this comment with the inlined Vite build output -->
+</body>
+</html>
