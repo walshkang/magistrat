@@ -118,3 +118,19 @@ These are post-Phase 6 features surfaced during real-doc testing (2026-03-28).
 **Dependency:** Needs the style map + position band extraction from Phase 6A/6B. The generation step is new infrastructure but the analysis is already there.
 
 **Risk:** Slides API (not Apps Script SlidesApp) is needed for master manipulation — requires OAuth scope escalation and possibly a backend. PowerPoint is more tractable via file generation.
+
+### Phase 7E: LLM-Assisted Deck Cleanup (Claude Skill / Generic LLM Instruction)
+**Problem:** Users often have content in markdown, docs, or LLM output that needs to land in a slide deck. The content is right but the formatting is wrong — pasted text doesn't match the exemplar style, bullets are flat, titles are unstyled. Manually reformatting is the exact tedium Magistrat exists to kill.
+
+**Approach:**
+1. **Claude Code skill / system prompt** that understands the Magistrat style map format and can translate markdown → structured slide content with correct role assignments
+2. **Input:** Markdown (or raw LLM output) + Magistrat style map JSON (extracted from exemplar scan)
+3. **Output:** Slide-ready content with role annotations (title, subtitle, body, bullet_l1/l2, footer, callout) and the correct style tokens applied — either as:
+   - Slides API batch request JSON (for direct injection)
+   - Formatted paste instructions (for manual apply)
+   - PatchOps that Magistrat can apply via the existing SAFE pipeline
+4. **Generic LLM instruction variant:** A portable system prompt (not Claude-specific) that any LLM can use to produce Magistrat-compatible output given a style map
+
+**Value:** Closes the "content creation → formatting" gap. Instead of: write content → paste into slides → run Magistrat → fix findings, it becomes: write content → LLM formats it per style map → paste into slides → Magistrat confirms zero findings.
+
+**Dependency:** Needs the style map export from Phase 6A and the role vocabulary from shared-types. The skill itself is orthogonal to the sidebar — it's a standalone tool that produces input for Magistrat's pipeline.
