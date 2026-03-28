@@ -1,0 +1,69 @@
+:root {
+  /* Status colors — DESIGN.md Section C */
+  --status-pass: #22c55e; /* green-500 */
+  --status-warn: #f59e0b; /* amber-500 */
+  --status-error: #ef4444; /* red-500 */
+  --status-muted: #94a3b8; /* slate-400 */
+  --status-focus: #3b82f6; /* blue-500 */
+
+  /* Surface */
+  --surface-primary: #ffffff;
+  --surface-secondary: #f8fafc; /* slate-50 */
+  --border-default: #e2e8f0; /* slate-200 */
+
+  /* Text */
+  --text-primary: #0f172a; /* slate-900 */
+  --text-secondary: #64748b; /* slate-500 */
+  --text-muted: #94a3b8; /* slate-400 */
+}
+
+/* Risk badge pills — DESIGN.md Section C */
+.risk-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 8px;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+.risk-badge--safe {
+  background: color-mix(in srgb, var(--status-pass) 15%, transparent);
+  color: #15803d; /* green-700 */
+}
+.risk-badge--caution {
+  background: color-mix(in srgb, var(--status-warn) 15%, transparent);
+  color: #b45309; /* amber-700 */
+}
+.risk-badge--manual {
+  background: transparent;
+  border: 1px solid var(--status-error);
+  color: #dc2626; /* red-600 */
+}
+
+/* Reconcile state badges */
+.reconcile-badge {
+  display: inline-flex;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.reconcile-applied {
+  background: color-mix(in srgb, var(--status-pass) 15%, transparent);
+  color: #15803d;
+}
+.reconcile-reverted_externally {
+  background: color-mix(in srgb, var(--status-warn) 15%, transparent);
+  color: #b45309;
+}
+.reconcile-drifted {
+  background: color-mix(in srgb, var(--status-error) 15%, transparent);
+  color: #dc2626;
+}
+.reconcile-missing_target {
+  background: color-mix(in srgb, var(--status-muted) 15%, transparent);
+  color: #475569;
+}
