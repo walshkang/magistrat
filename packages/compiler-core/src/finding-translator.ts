@@ -80,11 +80,42 @@ const RULE_TRANSLATORS: Record<string, RuleTranslator> = {
     riskLabel: riskLabel(f)
   }),
 
+  "BP-TYPO-005": (f) => ({
+    title: `${roleLabel(f.role)} line spacing should be ${num(f.expected.lineSpacing)}×, currently ${num(f.observed.lineSpacing)}×`,
+    description: "Line spacing does not match the exemplar's style map for this role.",
+    actionLabel: actionLabel(f),
+    riskLabel: riskLabel(f)
+  }),
+
+  "BP-TYPO-004": (f) => {
+    const families = (f.observed.fontFamilies as string[]) ?? [];
+    return {
+      title: "Mixed font families in one text box",
+      description: `Found ${families.length} fonts: ${families.join(", ")}. This is usually a paste artifact.`,
+      actionLabel: null,
+      riskLabel: "Manual only"
+    };
+  },
+
   "BP-COLOR-001": (f) => ({
     title: `${roleLabel(f.role)} color should be ${str(f.expected.fontColor)}, currently ${str(f.observed.fontColor)}`,
     description: "Font color does not match the exemplar's style map.",
     actionLabel: actionLabel(f),
     riskLabel: riskLabel(f)
+  }),
+
+  "BP-COLOR-002": (f) => ({
+    title: "Semi-transparent text detected",
+    description: `Text opacity is ${Math.round((f.observed.fontAlpha as number) * 100)}%. Fully opaque (100%) is expected unless intentionally decorative.`,
+    actionLabel: null,
+    riskLabel: "Manual only"
+  }),
+
+  "BP-COLOR-003": (f) => ({
+    title: `Callout fill color should be ${str(f.expected.fillColor)}, currently ${str(f.observed.fillColor)}`,
+    description: "Callout background color does not match the exemplar's palette.",
+    actionLabel: null,
+    riskLabel: "Manual only"
   }),
 
   "BP-BULLET-001": (f) => ({
@@ -94,9 +125,23 @@ const RULE_TRANSLATORS: Record<string, RuleTranslator> = {
     riskLabel: riskLabel(f)
   }),
 
+  "BP-BULLET-002": (f) => ({
+    title: `${roleLabel(f.role)} bullet glyph should be "${str(f.expected.bulletGlyph)}", currently "${str(f.observed.bulletGlyph)}"`,
+    description: "Bullet character does not match the exemplar. Change manually in Google Slides.",
+    actionLabel: null,
+    riskLabel: "Manual only"
+  }),
+
   "BP-HYGIENE-001": (_f) => ({
     title: "Invisible object blocking content",
     description: "A hidden shape with non-trivial area sits above visible content. Review and consider deleting.",
+    actionLabel: null,
+    riskLabel: "Manual only"
+  }),
+
+  "BP-HYGIENE-002": (f) => ({
+    title: "Object is off-slide",
+    description: `This element is mostly outside the visible slide area (${Math.round((f.observed.overlapRatio as number) * 100)}% visible). It won't appear during presentation.`,
     actionLabel: null,
     riskLabel: "Manual only"
   }),
@@ -106,6 +151,21 @@ const RULE_TRANSLATORS: Record<string, RuleTranslator> = {
     description: `Found leftover placeholder text: "${truncate(str(f.observed.textContent), 60)}"`,
     actionLabel: null,
     riskLabel: "Manual only"
+  }),
+
+  "BP-HYGIENE-003": (f) => ({
+    title: "Possible duplicate object",
+    description: `This element overlaps another with identical content (${Math.round((f.observed.iou as number) * 100)}% overlap). One is likely a copy-paste duplicate.`,
+    actionLabel: null,
+    riskLabel: "Manual only"
+  }),
+
+  "BP-HYGIENE-005": (f) => ({
+    title: `Proofing language is ${str(f.observed.proofingLanguage)}, deck uses ${str(f.expected.proofingLanguage)}`,
+    description:
+      "Mismatched proofing language causes incorrect spell-check behavior. Safe to normalize.",
+    actionLabel: actionLabel(f),
+    riskLabel: riskLabel(f)
   }),
 
   "BP-CONT-001": (_f) => ({

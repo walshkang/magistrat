@@ -42,7 +42,9 @@ export function buildStyleMap(
       fontColor: dominant.fontColor,
       lineSpacing: shape.paragraphs[0]?.lineSpacing,
       bulletIndent: shape.paragraphs[0]?.bulletIndent,
-      bulletHanging: shape.paragraphs[0]?.bulletHanging
+      bulletHanging: shape.paragraphs[0]?.bulletHanging,
+      bulletGlyph: shape.paragraphs[0]?.bulletGlyph,
+      ...(role === "CALLOUT" && shape.fillColor !== undefined ? { fillColor: shape.fillColor } : {})
     };
 
     styleMap[role] = mode === "token_normalized" ? normalizeTokens(baseTokens) : baseTokens;
@@ -74,7 +76,9 @@ function normalizeTokens(tokens: RoleStyleTokens): RoleStyleTokens {
     fontSizePt: roundToHalf(tokens.fontSizePt),
     lineSpacing: tokens.lineSpacing !== undefined ? roundToQuarter(tokens.lineSpacing) : undefined,
     bulletIndent: tokens.bulletIndent !== undefined ? roundToHalf(tokens.bulletIndent) : undefined,
-    bulletHanging: tokens.bulletHanging !== undefined ? roundToHalf(tokens.bulletHanging) : undefined
+    bulletHanging: tokens.bulletHanging !== undefined ? roundToHalf(tokens.bulletHanging) : undefined,
+    bulletGlyph: tokens.bulletGlyph !== undefined ? tokens.bulletGlyph.trim() : undefined,
+    fillColor: tokens.fillColor !== undefined ? tokens.fillColor.trim() : undefined
   };
 }
 

@@ -11,6 +11,9 @@ export interface RoleStyleTokens {
   lineSpacing?: number | undefined;
   bulletIndent?: number | undefined;
   bulletHanging?: number | undefined;
+  bulletGlyph?: string | undefined;
+  /** Exemplar callout shape fill when present */
+  fillColor?: string | undefined;
 }
 
 export type StyleMap = Partial<Record<RoleV1, RoleStyleTokens>>;

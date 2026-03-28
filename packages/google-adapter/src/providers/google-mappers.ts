@@ -43,6 +43,8 @@ export function mapPageElement(element: GoogleBridgePageElement): ShapeSnapshot 
     visible: element.visible ?? true,
     grouped: element.grouped ?? false,
     zIndex: element.zIndex ?? 0,
+    ...(typeof element.fillColor === "string" ? { fillColor: normalizeColor(element.fillColor) } : {}),
+    ...(typeof element.fillAlpha === "number" ? { fillAlpha: element.fillAlpha } : {}),
     textRuns: runs.map((run) => ({
       text: run.text,
       fontFamily: run.fontFamily ?? "",

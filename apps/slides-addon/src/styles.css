@@ -345,6 +345,122 @@ button {
   margin: 0;
 }
 
+/* —— Ratify —— */
+.ratify-btn {
+  background: linear-gradient(135deg, var(--status-pass), #16a34a);
+  border: none;
+  color: #ffffff;
+  font-weight: 600;
+}
+.ratify-btn:hover {
+  background: linear-gradient(135deg, #16a34a, #15803d);
+}
+.ratify-stamp {
+  margin: 8px 0 0;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--status-pass);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.ratify-stamp::before {
+  content: "✓";
+  font-weight: 700;
+}
+
+/* —— Change History —— */
+.change-history-details {
+  margin: 0;
+  background: var(--surface-card);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+  overflow: hidden;
+}
+.change-history-details > summary {
+  list-style: none;
+  cursor: pointer;
+}
+.change-history-details > summary::-webkit-details-marker {
+  display: none;
+}
+.change-history-details > summary::marker {
+  content: "";
+}
+.change-history {
+  padding: 0 12px 12px;
+  margin: 0;
+  border: none;
+  background: transparent;
+}
+.change-history__title {
+  font-size: 13px;
+  font-weight: 600;
+  margin: 0;
+  padding: 12px;
+  color: var(--text-primary);
+}
+.change-history__group {
+  margin-bottom: 12px;
+}
+.change-history__group:last-of-type {
+  margin-bottom: 8px;
+}
+.change-history__date {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  margin: 0 0 6px;
+}
+.change-history__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.change-history__item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+.change-history__icon {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  font-size: 11px;
+  line-height: 16px;
+  text-align: center;
+  border-radius: 50%;
+}
+.change-history__icon--applied {
+  color: var(--status-pass);
+}
+.change-history__icon--reverted_externally {
+  color: var(--status-warn);
+}
+.change-history__icon--drifted {
+  color: var(--status-warn);
+}
+.change-history__icon--missing_target {
+  color: var(--text-tertiary);
+}
+.change-history__label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-primary);
+  margin: 0;
+}
+.change-history__detail {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  margin: 0;
+}
+.change-history .btn-ghost {
+  margin-top: 4px;
+}
+
 .exemplar-health-summary {
   margin: 10px 0 0;
   font-size: 0.85rem;

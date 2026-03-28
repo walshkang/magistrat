@@ -12,6 +12,7 @@ import type {
 import { runContinuityChecks } from "./continuity.js";
 import { ROLE_CONFIDENCE_MIN } from "./constants.js";
 import { stableHash } from "./hash.js";
+import { computeIOU } from "./iou.js";
 
 export interface RunChecksResult {
   findings: Finding[];
@@ -40,6 +41,8 @@ export function runChecks(deck: DeckSnapshot, styleMap: StyleMap): RunChecksResu
     analyzedSlides.add(slideId);
   };
 
+  const dominantProofingLanguage = computeDominantProofingLanguage(deck);
+
   for (const slide of deck.slides) {
     for (const shape of slide.shapes) {
       if (!shape.supportedForAnalysis) {
@@ -58,6 +61,20 @@ export function runChecks(deck: DeckSnapshot, styleMap: StyleMap): RunChecksResu
       markAnalyzed(slide.slideId, shape.objectId);
 
       for (const finding of evaluateObjectHygiene(slide.slideId, shape.objectId, shape)) {
+        pushFinding(finding);
+      }
+
+      for (const finding of evaluateMultiRunTypography(slide.slideId, shape.objectId, shape)) {
+        pushFinding(finding);
+      }
+
+      for (const finding of evaluateProofingLanguage(
+        slide.slideId,
+        shape.objectId,
+        shape,
+        dominantProofingLanguage,
+        suggestedPatches
+      )) {
         pushFinding(finding);
       }
 
@@ -130,7 +147,8 @@ export function runChecks(deck: DeckSnapshot, styleMap: StyleMap): RunChecksResu
         (role === "BULLET_L1" ||
           role === "BULLET_L2" ||
           expected.bulletIndent !== undefined ||
-          expected.bulletHanging !== undefined) &&
+          expected.bulletHanging !== undefined ||
+          expected.bulletGlyph !== undefined) &&
         !shape.inspectability.bullets;
 
       if (bulletChecksBlocked) {
@@ -154,6 +172,9 @@ export function runChecks(deck: DeckSnapshot, styleMap: StyleMap): RunChecksResu
         autofitEnabled: shape.autofitEnabled,
         bulletIndent: shape.paragraphs[0]?.bulletIndent,
         bulletHanging: shape.paragraphs[0]?.bulletHanging,
+        bulletGlyph: shape.paragraphs[0]?.bulletGlyph,
+        lineSpacing: shape.paragraphs[0]?.lineSpacing,
+        fillColor: shape.fillColor,
         skipBulletChecks: bulletChecksBlocked
       });
 
@@ -162,6 +183,10 @@ export function runChecks(deck: DeckSnapshot, styleMap: StyleMap): RunChecksResu
       }
 
       suggestedPatches.push(...mismatchFindings.patches);
+    }
+
+    for (const finding of evaluateDuplicateOverlaps(slide)) {
+      pushFinding(finding);
     }
   }
 
@@ -255,6 +280,77 @@ function evaluateObjectHygiene(
     });
   }
 
+  const dominantRun = shape.textRuns[0];
+  if (
+    dominantRun &&
+    dominantRun.fontAlpha > 0.01 &&
+    dominantRun.fontAlpha < 0.95
+  ) {
+    const findingId = `finding-${stableHash([slideId, objectId, "semi_transparent_text"])}`;
+    findings.push({
+      id: findingId,
+      ruleId: "BP-COLOR-002",
+      source: "playbook",
+      slideId,
+      objectId,
+      role,
+      observed: { fontAlpha: dominantRun.fontAlpha },
+      expected: { fontAlpha: 1.0 },
+      evidence: [
+        evidence("PLAYBOOK_EVIDENCE", "Playbook requires fully opaque text for readability."),
+        evidence("TYPOGRAPHIC_EVIDENCE", "Text alpha is between 1% and 95%, likely unintentional.")
+      ],
+      confidence: roleScore,
+      risk: "manual",
+      severity: "warn",
+      coverage: "ANALYZED"
+    });
+  }
+
+  const canvas = { left: 0, top: 0, right: 720, bottom: 405 };
+  const geo = shape.geometry;
+  const obj = {
+    left: geo.left,
+    top: geo.top,
+    right: geo.left + geo.width,
+    bottom: geo.top + geo.height
+  };
+  const overlapLeft = Math.max(canvas.left, obj.left);
+  const overlapTop = Math.max(canvas.top, obj.top);
+  const overlapRight = Math.min(canvas.right, obj.right);
+  const overlapBottom = Math.min(canvas.bottom, obj.bottom);
+  const overlapArea = Math.max(0, overlapRight - overlapLeft) * Math.max(0, overlapBottom - overlapTop);
+  const objectArea = geo.width * geo.height;
+  const overlapRatio = objectArea > 0 ? overlapArea / objectArea : 1;
+
+  if (overlapRatio < 0.1) {
+    const findingId = `finding-${stableHash([slideId, objectId, "off_slide"])}`;
+    findings.push({
+      id: findingId,
+      ruleId: "BP-HYGIENE-002",
+      source: "playbook",
+      slideId,
+      objectId,
+      role,
+      observed: {
+        left: geo.left,
+        top: geo.top,
+        width: geo.width,
+        height: geo.height,
+        overlapRatio
+      },
+      expected: { minOverlapRatio: 0.1 },
+      evidence: [
+        evidence("PLAYBOOK_EVIDENCE", "Slide canvas overlap policy."),
+        evidence("GEOMETRIC_EVIDENCE", "Object bounding box is <10% within the slide canvas.")
+      ],
+      confidence: roleScore,
+      risk: "manual",
+      severity: "warn",
+      coverage: "ANALYZED"
+    });
+  }
+
   return findings;
 }
 
@@ -304,6 +400,9 @@ interface EvaluateInput {
   autofitEnabled: boolean;
   bulletIndent?: number | undefined;
   bulletHanging?: number | undefined;
+  bulletGlyph?: string | undefined;
+  lineSpacing?: number | undefined;
+  fillColor?: string | undefined;
   skipBulletChecks: boolean;
 }
 
@@ -478,7 +577,8 @@ function evaluateTypographyAndStructure(input: EvaluateInput): {
     input.role === "BULLET_L1" ||
     input.role === "BULLET_L2" ||
     input.expected.bulletIndent !== undefined ||
-    input.expected.bulletHanging !== undefined;
+    input.expected.bulletHanging !== undefined ||
+    input.expected.bulletGlyph !== undefined;
   if (hasBulletExpectation && !input.skipBulletChecks) {
     const expectedIndent = input.expected.bulletIndent;
     const expectedHanging = input.expected.bulletHanging;
@@ -535,12 +635,320 @@ function evaluateTypographyAndStructure(input: EvaluateInput): {
         risk: "safe"
       });
     }
+
+    if (
+      input.expected.bulletGlyph !== undefined &&
+      input.bulletGlyph !== undefined &&
+      input.expected.bulletGlyph !== input.bulletGlyph
+    ) {
+      const findingId = `finding-${stableHash([...baseMeta, "bullet_glyph"])}`;
+      findings.push({
+        id: findingId,
+        ruleId: "BP-BULLET-002",
+        source: "exemplar",
+        slideId: input.slideId,
+        objectId: input.objectId,
+        role: input.role,
+        observed: { bulletGlyph: input.bulletGlyph },
+        expected: { bulletGlyph: input.expected.bulletGlyph },
+        evidence: [
+          evidence("EXEMPLAR_EVIDENCE", "Style map defines expected bullet glyph."),
+          evidence("STRUCTURAL_EVIDENCE", "Bullet character differs from exemplar.")
+        ],
+        confidence: input.inferredRoleScore,
+        risk: "manual",
+        severity: "info",
+        coverage: "ANALYZED"
+      });
+    }
+  }
+
+  const lineSpacingDiff =
+    input.lineSpacing !== undefined && input.expected.lineSpacing !== undefined
+      ? Math.abs(input.lineSpacing - input.expected.lineSpacing)
+      : 0;
+  if (
+    input.expected.lineSpacing !== undefined &&
+    input.lineSpacing !== undefined &&
+    lineSpacingDiff > 0.05 + 1e-9
+  ) {
+    const findingId = `finding-${stableHash([...baseMeta, "line_spacing"])}`;
+    const patchId = `patch-${stableHash([findingId, "SET_LINE_SPACING"])}`;
+    const typographyPreimage = { ...input.observed, lineSpacing: input.lineSpacing };
+
+    findings.push({
+      id: findingId,
+      ruleId: "BP-TYPO-005",
+      source: "exemplar",
+      slideId: input.slideId,
+      objectId: input.objectId,
+      role: input.role,
+      observed: { lineSpacing: input.lineSpacing },
+      expected: { lineSpacing: input.expected.lineSpacing },
+      evidence: [
+        evidence("EXEMPLAR_EVIDENCE", "Role style map defines expected line spacing."),
+        evidence("TYPOGRAPHIC_EVIDENCE", "Dominant paragraph line spacing differs from style map.")
+      ],
+      confidence: input.inferredRoleScore,
+      risk: "caution",
+      severity: "warn",
+      coverage: "ANALYZED",
+      suggestedPatchId: patchId
+    });
+
+    patches.push({
+      id: patchId,
+      op: "SET_LINE_SPACING",
+      target: {
+        slideId: input.slideId,
+        objectId: input.objectId,
+        preconditionHash: stableHash(typographyPreimage)
+      },
+      fields: { lineSpacing: input.expected.lineSpacing },
+      risk: "caution",
+      validations: ["no_reflow_material_change"]
+    });
+  }
+
+  if (
+    input.role === "CALLOUT" &&
+    input.expected.fillColor !== undefined &&
+    input.fillColor !== undefined &&
+    input.fillColor !== input.expected.fillColor
+  ) {
+    const findingId = `finding-${stableHash([...baseMeta, "callout_fill"])}`;
+    findings.push({
+      id: findingId,
+      ruleId: "BP-COLOR-003",
+      source: "exemplar",
+      slideId: input.slideId,
+      objectId: input.objectId,
+      role: input.role,
+      observed: { fillColor: input.fillColor },
+      expected: { fillColor: input.expected.fillColor },
+      evidence: [
+        evidence("EXEMPLAR_EVIDENCE", "Exemplar callout defines expected fill color."),
+        evidence("TYPOGRAPHIC_EVIDENCE", "Callout background color differs from exemplar.")
+      ],
+      confidence: input.inferredRoleScore,
+      risk: "manual",
+      severity: "warn",
+      coverage: "ANALYZED"
+    });
   }
 
   return {
     findings,
     patches
   };
+}
+
+/**
+ * Deck-wide mode of proofingLanguage on text runs (non-empty only).
+ * Tie-break: highest count, then lexicographically greatest tag (deterministic).
+ */
+function computeDominantProofingLanguage(deck: DeckSnapshot): string | null {
+  const counts = new Map<string, number>();
+  for (const slide of deck.slides) {
+    for (const shape of slide.shapes) {
+      if (!shape.supportedForAnalysis) {
+        continue;
+      }
+      for (const run of shape.textRuns) {
+        const lang = run.proofingLanguage?.trim();
+        if (lang) {
+          counts.set(lang, (counts.get(lang) ?? 0) + 1);
+        }
+      }
+    }
+  }
+  if (counts.size === 0) {
+    return null;
+  }
+  const sorted = [...counts.entries()].sort((a, b) => {
+    if (b[1] !== a[1]) {
+      return b[1] - a[1];
+    }
+    return b[0].localeCompare(a[0]);
+  });
+  return sorted[0]?.[0] ?? null;
+}
+
+function evaluateMultiRunTypography(
+  slideId: string,
+  objectId: string,
+  shape: DeckSnapshot["slides"][number]["shapes"][number]
+): Finding[] {
+  if (shape.textRuns.length <= 1) {
+    return [];
+  }
+  const families = new Set(shape.textRuns.map((r) => r.fontFamily));
+  if (families.size <= 1) {
+    return [];
+  }
+  const role = shape.inferredRole ?? "UNKNOWN";
+  const roleScore = shape.inferredRoleScore ?? ROLE_CONFIDENCE_MIN.manual;
+  const fontFamilies = [...families].sort((a, b) => a.localeCompare(b));
+  const findingId = `finding-${stableHash([slideId, objectId, "mixed_font_families"])}`;
+  return [
+    {
+      id: findingId,
+      ruleId: "BP-TYPO-004",
+      source: "playbook",
+      slideId,
+      objectId,
+      role,
+      observed: { fontFamilies },
+      expected: { maxDistinctFamilies: 1 },
+      evidence: [
+        evidence(
+          "PLAYBOOK_EVIDENCE",
+          "Multiple font families in a single text box is typically unintentional."
+        ),
+        evidence(
+          "TYPOGRAPHIC_EVIDENCE",
+          `Found ${fontFamilies.length} distinct families: ${fontFamilies.join(", ")}`
+        )
+      ],
+      confidence: roleScore,
+      risk: "manual",
+      severity: "warn",
+      coverage: "ANALYZED"
+    }
+  ];
+}
+
+function evaluateProofingLanguage(
+  slideId: string,
+  objectId: string,
+  shape: DeckSnapshot["slides"][number]["shapes"][number],
+  dominantLanguage: string | null,
+  suggestedPatches: PatchOp[]
+): Finding[] {
+  if (!dominantLanguage) {
+    return [];
+  }
+  const run = shape.textRuns[0];
+  if (!run?.proofingLanguage) {
+    return [];
+  }
+  if (run.proofingLanguage === dominantLanguage) {
+    return [];
+  }
+  const role = shape.inferredRole ?? "UNKNOWN";
+  const roleScore = shape.inferredRoleScore ?? 1;
+  const findingId = `finding-${stableHash([slideId, objectId, "proofing_lang"])}`;
+  const patchId = `patch-${stableHash([findingId, "NORMALIZE_LANGUAGE_TAGS"])}`;
+
+  suggestedPatches.push({
+    id: patchId,
+    op: "NORMALIZE_LANGUAGE_TAGS",
+    target: {
+      slideId,
+      objectId,
+      preconditionHash: stableHash({ proofingLanguage: run.proofingLanguage })
+    },
+    fields: { proofingLanguage: dominantLanguage },
+    risk: "safe"
+  });
+
+  return [
+    {
+      id: findingId,
+      ruleId: "BP-HYGIENE-005",
+      source: "playbook",
+      slideId,
+      objectId,
+      role,
+      observed: { proofingLanguage: run.proofingLanguage },
+      expected: { proofingLanguage: dominantLanguage },
+      evidence: [
+        evidence("PLAYBOOK_EVIDENCE", "Inconsistent proofing language causes spell-check issues."),
+        evidence("HYGIENE_EVIDENCE", "Element language differs from deck-dominant language.")
+      ],
+      confidence: roleScore,
+      risk: "safe",
+      severity: "info",
+      coverage: "ANALYZED",
+      suggestedPatchId: patchId
+    }
+  ];
+}
+
+function normalizeShapeText(shape: DeckSnapshot["slides"][number]["shapes"][number]): string {
+  const raw = shape.textRuns.map((r) => r.text).join(" ");
+  return raw
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/** Higher z-index is treated as the duplicate; tie-break: lexicographically greater objectId. */
+function pickLikelyDuplicate(
+  a: DeckSnapshot["slides"][number]["shapes"][number],
+  b: DeckSnapshot["slides"][number]["shapes"][number]
+): DeckSnapshot["slides"][number]["shapes"][number] {
+  if (a.zIndex !== b.zIndex) {
+    return a.zIndex > b.zIndex ? a : b;
+  }
+  return a.objectId > b.objectId ? a : b;
+}
+
+function evaluateDuplicateOverlaps(slide: DeckSnapshot["slides"][number]): Finding[] {
+  const findings: Finding[] = [];
+  const shapes = slide.shapes.filter((s) => s.supportedForAnalysis);
+  for (let i = 0; i < shapes.length; i++) {
+    for (let j = i + 1; j < shapes.length; j++) {
+      const a = shapes[i];
+      const b = shapes[j];
+      if (a === undefined || b === undefined) {
+        continue;
+      }
+      const iou = computeIOU(a.geometry, b.geometry);
+      if (iou < 0.8) {
+        continue;
+      }
+      const textA = normalizeShapeText(a);
+      const textB = normalizeShapeText(b);
+      if (textA.length === 0 && textB.length === 0) {
+        continue;
+      }
+      if (textA !== textB && !textA.includes(textB) && !textB.includes(textA)) {
+        continue;
+      }
+      const duplicate = pickLikelyDuplicate(a, b);
+      const original = duplicate.objectId === a.objectId ? b : a;
+      const role = duplicate.inferredRole ?? "UNKNOWN";
+      const roleScore = duplicate.inferredRoleScore ?? ROLE_CONFIDENCE_MIN.manual;
+      const findingId = `finding-${stableHash([slide.slideId, duplicate.objectId, original.objectId, "dup_overlap"])}`;
+      findings.push({
+        id: findingId,
+        ruleId: "BP-HYGIENE-003",
+        source: "playbook",
+        slideId: slide.slideId,
+        objectId: duplicate.objectId,
+        role,
+        observed: {
+          objectId: duplicate.objectId,
+          iou,
+          pairedObjectId: original.objectId
+        },
+        expected: { noDuplicateOverlaps: true },
+        evidence: [
+          evidence(
+            "PLAYBOOK_EVIDENCE",
+            "Overlapping objects with identical content suggest a copy-paste duplicate."
+          ),
+          evidence("GEOMETRIC_EVIDENCE", `IOU: ${iou.toFixed(2)}`)
+        ],
+        confidence: roleScore,
+        risk: "manual",
+        severity: "warn",
+        coverage: "ANALYZED"
+      });
+    }
+  }
+  return findings;
 }
 
 function objectKey(slideId: string, objectId: string): string {

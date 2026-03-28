@@ -594,6 +594,20 @@ function applyMutation(presentation: GoogleBridgePresentation, mutation: BridgeM
       slide.pageElements = slide.pageElements.filter((candidate) => candidate.objectId !== mutation.objectId);
       return;
     }
+    case "NORMALIZE_LANGUAGE_TAGS": {
+      if (!shape.text?.runs) {
+        return;
+      }
+      const proofingLanguage =
+        typeof mutation.fields.proofingLanguage === "string" ? mutation.fields.proofingLanguage : undefined;
+      if (!proofingLanguage) {
+        return;
+      }
+      for (const run of shape.text.runs) {
+        run.proofingLanguage = proofingLanguage;
+      }
+      return;
+    }
     default:
       return;
   }

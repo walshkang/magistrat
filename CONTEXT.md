@@ -1,11 +1,14 @@
 # Magistrat Context
 
 ## Active Phase
-- Phase 2B: "Coverage" — Rule Coverage Push (8→16 rules)
+- Phase 2B: "Trust Loop Polish" — Ratify UX, Change History, then Rule Coverage (8→16)
 
 ## Active Epic
-- Next: scope Phase 2B rule implementations
-- Stitch screens available for Phase 3+4 future state reference
+- **2B-1: Ratify UX** — promote button, gate on 0 findings, victory state
+- 2B-2: Change History — consumer-grade audit trail (translated patch log, always visible)
+- 2B-3: Batch 1 rules — DONE (BP-TYPO-005, BP-COLOR-002, BP-HYGIENE-002, BP-BULLET-002)
+- 2B-4: Batch 2 rules — BP-TYPO-004, BP-COLOR-003, BP-HYGIENE-003, BP-HYGIENE-005
+- Note: Ratify gate on 0 findings creates natural pull for Phase 4 Exceptions/Ignore
 
 ## Immediate Blocker
 - None.

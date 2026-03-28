@@ -71,6 +71,18 @@ Expected diagnostics by environment:
 6. Continuity findings
 - Validate agenda/title checks are emitted deterministically (`BP-CONT-001`, `BP-CONT-002`) when input conditions are present.
 
+7. Alignment Score (Phase 2A)
+- After scan, verify the Alignment Score bar appears above the summary panel.
+- Score should reflect percentage of analyzed objects with zero findings.
+- Bar color: green (≥80%), yellow (50–79%), red (<50%).
+- After applying all safe fixes, re-scan and verify score increases.
+
+8. Batch 1 rule coverage (Phase 2B)
+- **BP-TYPO-005 — Line spacing mismatch:** Sim deck slide 2 title has `lineSpacing: 1.5`. If exemplar (slide 1) has different line spacing, a caution finding should appear with "line spacing should be X×, currently 1.5×".
+- **BP-COLOR-002 — Semi-transparent text:** Sim deck slide 2 has "Draft — do not distribute" at `fontAlpha: 0.4`. Verify a manual finding appears: "Semi-transparent text detected" with "40% opacity".
+- **BP-HYGIENE-002 — Off-slide object:** Sim deck slide 2 has "old notes" at position (800, 500) — fully outside the 720×405 canvas. Verify a manual finding: "Object is off-slide" with low overlap percentage.
+- **BP-BULLET-002 — Bullet glyph mismatch:** Sim deck slide 3 has bullets with glyph "–". If exemplar bullets use "•", verify a manual finding: "bullet glyph should be •, currently –".
+
 ## 4) Persistence Checks
 
 - Perform clean up and ratify.

@@ -35,6 +35,8 @@ export function createShape(overrides: Partial<ShapeSnapshot> = {}): ShapeSnapsh
       height: 60,
       rotation: 0
     },
+    fillColor: overrides.fillColor,
+    fillAlpha: overrides.fillAlpha,
     inferredRole: overrides.inferredRole,
     inferredRoleScore: overrides.inferredRoleScore,
     supportedForAnalysis: overrides.supportedForAnalysis ?? true,

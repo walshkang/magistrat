@@ -2,6 +2,7 @@ import { getDocumentId, getRuntimeStatus } from "@magistrat/google-adapter";
 import type { DocumentStateV1 } from "@magistrat/shared-types";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AlignmentScoreBar } from "./components/AlignmentScoreBar.js";
+import { ChangeHistory } from "./components/ChangeHistory.js";
 import { DevModeToggle } from "./components/DevModeToggle.js";
 import { FindingsPanel } from "./components/FindingsPanel.js";
 import { useDevMode } from "./context/DevModeContext.js";
@@ -82,6 +83,10 @@ export function App() {
   const canRunScan = Boolean(deck && documentState);
   const ratifyState = documentState?.ratify;
   const totalPatches = documentState?.patchLog.length ?? 0;
+  const analyzedFindingsCount = analysisState
+    ? analysisState.findings.filter((f) => f.coverage === "ANALYZED").length
+    : 0;
+  const canRatify = Boolean(analysisState && documentState && analyzedFindingsCount === 0);
 
   const findingsRiskCounts = useMemo(() => {
     if (!analysisState) {
@@ -115,11 +120,6 @@ export function App() {
 
   const showPreScanEmpty =
     !analysisState && Boolean(deck && documentState && readDeckCapability.supported);
-
-  const patchLogHasIssues =
-    patchStateCounts.reverted_externally > 0 ||
-    patchStateCounts.drifted > 0 ||
-    patchStateCounts.missing_target > 0;
 
   if (loading) {
     return (
@@ -292,7 +292,27 @@ export function App() {
               >
                 Apply Recommended Fixes ({safePatchCount})
               </button>
+              {canRatify && !ratifyState ? (
+                <button type="button" className="btn-primary ratify-btn" onClick={() => void ratify()}>
+                  Ratify style
+                </button>
+              ) : null}
+              {!canRatify && analysisState && analyzedFindingsCount > 0 ? (
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  disabled
+                  title="Fix or ignore all findings before ratifying"
+                >
+                  Ratify style
+                </button>
+              ) : null}
             </div>
+            {ratifyState ? (
+              <p className="ratify-stamp">
+                Ratified {new Date(ratifyState.ratifiedAtIso).toLocaleDateString()}
+              </p>
+            ) : null}
           </section>
 
           {devMode ? (
@@ -336,11 +356,6 @@ export function App() {
               deck={deck}
               onApplyFinding={(id) => void applyForFinding(id)}
             />
-            <div className="actions">
-              <button type="button" className="btn-ghost" onClick={() => void ratify()}>
-                Ratify style
-              </button>
-            </div>
           </section>
         </>
       ) : null}
@@ -348,31 +363,14 @@ export function App() {
       {totalPatches > 0 ? (
         <section className="panel">
           {!devMode ? (
-            <>
-              <div className="patch-log-compact">
-                <span className="patch-log-compact__status">
-                  <span
-                    className={`patch-log-compact__dot ${patchLogHasIssues ? "patch-log-compact__dot--warn" : "patch-log-compact__dot--pass"}`}
-                    aria-hidden
-                  />
-                  <span>
-                    {patchStateCounts.applied} patches applied
-                    {patchLogHasIssues
-                      ? ` · ${patchStateCounts.reverted_externally} reverted · ${patchStateCounts.drifted} drifted · ${patchStateCounts.missing_target} missing`
-                      : ""}
-                  </span>
-                </span>
-                <button
-                  type="button"
-                  className="btn-ghost"
-                  onClick={() => void reconcileNow()}
-                  disabled={!documentState || !readDeckCapability.supported}
-                  title={!readDeckCapability.supported ? readDeckCapability.reason : undefined}
-                >
-                  Reconcile
-                </button>
-              </div>
-            </>
+            <ChangeHistory
+              patchLog={documentState?.patchLog ?? []}
+              findings={analysisState?.findings ?? documentState?.findings ?? []}
+              deck={deck}
+              onReconcile={() => void reconcileNow()}
+              reconcileDisabled={!documentState || !readDeckCapability.supported}
+              {...(!readDeckCapability.supported ? { reconcileTitle: readDeckCapability.reason } : {})}
+            />
           ) : (
             <>
               <div className="panel-header">

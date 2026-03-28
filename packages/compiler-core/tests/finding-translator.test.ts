@@ -90,6 +90,61 @@ describe("translateFinding", () => {
     });
   });
 
+  describe("BP-TYPO-005 — line spacing mismatch", () => {
+    it("shows spacing multipliers and caution labels", () => {
+      const result = translateFinding(
+        baseFinding({
+          ruleId: "BP-TYPO-005",
+          role: "TITLE",
+          risk: "caution",
+          severity: "warn",
+          observed: { lineSpacing: 1.4 },
+          expected: { lineSpacing: 1.2 }
+        })
+      );
+      expect(result.title).toContain("line spacing");
+      expect(result.title).toContain("1.2");
+      expect(result.title).toContain("1.4");
+      expect(result.actionLabel).toBe("Review & apply");
+      expect(result.riskLabel).toBe("Review required");
+    });
+  });
+
+  describe("BP-COLOR-002 — semi-transparent text", () => {
+    it("shows opacity percentage", () => {
+      const result = translateFinding(
+        baseFinding({
+          ruleId: "BP-COLOR-002",
+          risk: "manual",
+          severity: "warn",
+          observed: { fontAlpha: 0.5 },
+          expected: { fontAlpha: 1.0 }
+        })
+      );
+      expect(result.title).toBe("Semi-transparent text detected");
+      expect(result.description).toContain("50%");
+      expect(result.actionLabel).toBeNull();
+      expect(result.riskLabel).toBe("Manual only");
+    });
+  });
+
+  describe("BP-HYGIENE-002 — off-slide object", () => {
+    it("shows overlap ratio in description", () => {
+      const result = translateFinding(
+        baseFinding({
+          ruleId: "BP-HYGIENE-002",
+          risk: "manual",
+          severity: "warn",
+          observed: { overlapRatio: 0.09, left: -91, top: 0, width: 100, height: 100 },
+          expected: { minOverlapRatio: 0.1 }
+        })
+      );
+      expect(result.title).toBe("Object is off-slide");
+      expect(result.description).toContain("9%");
+      expect(result.actionLabel).toBeNull();
+    });
+  });
+
   describe("BP-BULLET-001 — bullet indent mismatch", () => {
     it("shows indent and hanging values", () => {
       const result = translateFinding(
@@ -105,6 +160,25 @@ describe("translateFinding", () => {
       expect(result.title).toBe("Bullet (L1) bullet indent does not match exemplar");
       expect(result.description).toContain("24");
       expect(result.description).toContain("18");
+    });
+  });
+
+  describe("BP-BULLET-002 — bullet glyph mismatch", () => {
+    it("shows expected and observed glyphs", () => {
+      const result = translateFinding(
+        baseFinding({
+          ruleId: "BP-BULLET-002",
+          role: "BULLET_L1",
+          risk: "manual",
+          severity: "info",
+          observed: { bulletGlyph: "\u2013" },
+          expected: { bulletGlyph: "\u2022" }
+        })
+      );
+      expect(result.title).toContain("\u2022");
+      expect(result.title).toContain("\u2013");
+      expect(result.actionLabel).toBeNull();
+      expect(result.riskLabel).toBe("Manual only");
     });
   });
 
@@ -138,6 +212,76 @@ describe("translateFinding", () => {
       );
       expect(result.title).toBe("Placeholder text detected");
       expect(result.description).toContain("Click to add subtitle");
+    });
+  });
+
+  describe("BP-TYPO-004 — mixed font families", () => {
+    it("lists font families", () => {
+      const result = translateFinding(
+        baseFinding({
+          ruleId: "BP-TYPO-004",
+          risk: "manual",
+          severity: "warn",
+          observed: { fontFamilies: ["Arial", "Calibri"] },
+          expected: { maxDistinctFamilies: 1 }
+        })
+      );
+      expect(result.title).toBe("Mixed font families in one text box");
+      expect(result.description).toContain("Arial");
+      expect(result.actionLabel).toBeNull();
+      expect(result.riskLabel).toBe("Manual only");
+    });
+  });
+
+  describe("BP-COLOR-003 — callout fill", () => {
+    it("shows expected vs observed fill", () => {
+      const result = translateFinding(
+        baseFinding({
+          ruleId: "BP-COLOR-003",
+          role: "CALLOUT",
+          risk: "manual",
+          severity: "warn",
+          observed: { fillColor: "#AABBCC" },
+          expected: { fillColor: "#FFEEDD" }
+        })
+      );
+      expect(result.title).toContain("#FFEEDD");
+      expect(result.title).toContain("#AABBCC");
+      expect(result.actionLabel).toBeNull();
+    });
+  });
+
+  describe("BP-HYGIENE-003 — duplicate overlap", () => {
+    it("shows overlap percentage", () => {
+      const result = translateFinding(
+        baseFinding({
+          ruleId: "BP-HYGIENE-003",
+          risk: "manual",
+          severity: "warn",
+          observed: { objectId: "b", iou: 0.91, pairedObjectId: "a" },
+          expected: { noDuplicateOverlaps: true }
+        })
+      );
+      expect(result.title).toBe("Possible duplicate object");
+      expect(result.description).toContain("91%");
+    });
+  });
+
+  describe("BP-HYGIENE-005 — proofing language", () => {
+    it("shows languages and safe apply", () => {
+      const result = translateFinding(
+        baseFinding({
+          ruleId: "BP-HYGIENE-005",
+          risk: "safe",
+          severity: "info",
+          observed: { proofingLanguage: "zh-CN" },
+          expected: { proofingLanguage: "en" }
+        })
+      );
+      expect(result.title).toContain("zh-CN");
+      expect(result.title).toContain("en");
+      expect(result.actionLabel).toBe("Apply fix");
+      expect(result.riskLabel).toBe("Auto-fix");
     });
   });
 

@@ -42,6 +42,9 @@ export interface ShapeSnapshot {
   visible: boolean;
   grouped: boolean;
   zIndex: number;
+  /** Shape fill (e.g. callout background); from host when available */
+  fillColor?: string | undefined;
+  fillAlpha?: number | undefined;
   textRuns: TextRunSnapshot[];
   paragraphs: ParagraphSnapshot[];
   geometry: GeometrySnapshot;

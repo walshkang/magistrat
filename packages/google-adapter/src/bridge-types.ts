@@ -41,6 +41,8 @@ export interface GoogleBridgePageElement {
   visible?: boolean;
   grouped?: boolean;
   zIndex?: number;
+  fillColor?: string;
+  fillAlpha?: number;
   geometry?: {
     left?: number;
     top?: number;
