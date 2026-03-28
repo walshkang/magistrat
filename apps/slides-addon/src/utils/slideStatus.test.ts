@@ -112,6 +112,23 @@ describe("computeSlideStatuses", () => {
     expect(result[0]?.findingCount).toBe(2);
   });
 
+  it("slide with both NOT_ANALYZED and ANALYZED findings uses ANALYZED severity", () => {
+    const d = deck({ slideId: "s1", index: 1 });
+    const findings: Finding[] = [
+      baseFinding({
+        id: "1",
+        slideId: "s1",
+        coverage: "NOT_ANALYZED",
+        notAnalyzedReason: "UNSUPPORTED_OBJECT_TYPE",
+        severity: "info"
+      }),
+      baseFinding({ id: "2", slideId: "s1", severity: "warn", coverage: "ANALYZED" })
+    ];
+    const result = computeSlideStatuses(findings, d);
+    expect(result[0]?.status).toBe("warn");
+    expect(result[0]?.findingCount).toBe(1);
+  });
+
   it("error beats warn on same slide", () => {
     const d = deck({ slideId: "s1", index: 1 });
     const findings: Finding[] = [

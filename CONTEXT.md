@@ -1,10 +1,10 @@
 # Magistrat Context
 
 ## Active Phase
-- Phase 4: "Exceptions" — Ignore Workflow + Score Adjustment
+- Phase 5: "Ship" — CI, Deployment, Reliability
 
 ## Active Epic
-- Next: scope Phase 4 (ignore action, score adjustment, exceptions panel)
+- Next: scope Phase 5 (GitHub Actions CI, Google deployment, error boundary, telemetry, state migration)
 
 ## Immediate Blocker
 - None.
@@ -18,6 +18,7 @@ See `~/.claude/plans/keen-fluttering-sparrow.md` for full plan.
 | 2A. Alignment Score | 2 wk | **Complete** |
 | 2B. Rule Coverage (8→16) + Trust Loop Polish | 4 wk | **Complete** — 16 rules, ratify UX, change history |
 | 3. Interactive Minimap | 2 wk | **Complete** — minimap, per-slide filtering, slide status |
+| 4. Exceptions / Ignore | 1 wk | **Complete** — ignore workflow, score adjustment, exceptions panel |
 | 3. Interactive Minimap | 2 wk | Queued |
 | 4. Exceptions / Ignore | 1 wk | Queued |
 | 5. Ship (CI, deploy, reliability) | 2 wk | Queued |
