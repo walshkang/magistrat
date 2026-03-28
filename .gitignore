@@ -6,3 +6,5 @@ coverage
 .vscode
 apps/taskpane/manifest.local.xml
 apps/taskpane/.env.smoke.local
+.clasp.json
+output/clasp-stage

@@ -22,7 +22,102 @@ npm install
 
 - Google bridge implementation available for the runtime environment (or SIM mode for local development).
 
-## 1) Start the Sidebar App
+---
+
+## Deploy to Google Slides (Real Document Testing)
+
+This section covers deploying Magistrat as an actual Google Slides sidebar add-on so you can test against real presentations.
+
+### One-time setup
+
+1. **Install clasp** (Google Apps Script CLI):
+
+```bash
+npm install -g @google/clasp
+```
+
+2. **Log in to your Google account:**
+
+```bash
+clasp login
+```
+
+This opens a browser for OAuth. Approve the permissions.
+
+3. **Enable the Apps Script API** in your Google account:
+   - Go to https://script.google.com (Settings → Google Apps Script API)
+   - Turn on "Google Apps Script API"
+
+4. **Create a new Apps Script project** bound to a test Google Slides presentation:
+   - Open a Google Slides presentation (create a test one)
+   - Go to **Extensions → Apps Script**
+   - This creates a bound script project — copy the **Script ID** from the URL:
+     `https://script.google.com/macros/d/SCRIPT_ID_HERE/edit`
+
+5. **Create `.clasp.json`** at the repo root:
+
+```json
+{
+  "scriptId": "YOUR_SCRIPT_ID_HERE",
+  "rootDir": "output/clasp-stage"
+}
+```
+
+> Do NOT commit `.clasp.json` — it contains your personal script ID. It is already covered by `.gitignore` patterns.
+
+### Deploy
+
+Run the deploy script from the repo root:
+
+```bash
+./scripts/deploy-slides-addon.sh
+```
+
+This will:
+1. Build the Vite React app (`npm run build --workspace @magistrat/slides-addon`)
+2. Inline the JS + CSS into the Apps Script `sidebar.html`
+3. Stage `Code.gs`, `appsscript.json`, and `sidebar.html` into `output/clasp-stage/`
+4. Push to Google via `clasp push`
+
+### Dry run (build without pushing)
+
+```bash
+./scripts/deploy-slides-addon.sh --dry
+```
+
+Inspect the staged files in `output/clasp-stage/` before pushing.
+
+### Open the sidebar in Google Slides
+
+1. After `clasp push`, go back to your test Google Slides presentation
+2. Reload the page (the script needs a fresh load)
+3. Go to **Extensions → Magistrat → Open sidebar**
+4. The sidebar should appear with the full Magistrat UI
+
+> **First run:** Google may ask you to authorize the script. Click through the "Advanced" → "Go to Magistrat (unsafe)" flow. This is normal for unverified personal scripts.
+
+### Updating after code changes
+
+After making changes to the React app or Apps Script code:
+
+```bash
+./scripts/deploy-slides-addon.sh
+```
+
+Then reload the Google Slides tab and reopen the sidebar.
+
+### Troubleshooting deployment
+
+- **`clasp push` fails with "not logged in"** — Run `clasp login` again.
+- **`clasp push` fails with "API not enabled"** — Enable at https://script.google.com (Settings → Google Apps Script API)
+- **Sidebar doesn't appear in Extensions menu** — The script must be bound to the presentation (created via Extensions → Apps Script, not standalone).
+- **Sidebar shows blank / errors** — Open browser DevTools (F12) in the sidebar iframe. Check for JS errors. The sidebar.html is an iframe; errors appear in its console.
+- **"Authorization required" popup** — Click through the OAuth flow. For personal test scripts, you'll see an "unverified app" warning — this is expected.
+- **Changes not showing up** — Google caches aggressively. Close and reopen the presentation tab entirely, then reopen the sidebar.
+
+---
+
+## 1) Start the Sidebar App (Local / SIM Mode)
 
 From repo root:
 
@@ -31,6 +126,8 @@ npm run dev --workspace @magistrat/slides-addon
 ```
 
 Open the local URL reported by Vite (default `http://localhost:3020`).
+
+In local mode, the app runs in **SIM** mode with fixture data — no Google bridge required.
 
 ## 2) Runtime Truth Table
 
