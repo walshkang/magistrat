@@ -28,3 +28,9 @@ export const ROLE_CONFIDENCE_MIN = {
   caution: 0.9,
   manual: 0.7
 } as const;
+
+/**
+ * Distinct playbook rule IDs evaluated by runChecks + continuity in v1 (excludes BP-COVERAGE-001).
+ * Bump when adding BP-* rules.
+ */
+export const PLAYBOOK_RULE_COUNT = 17;

@@ -465,6 +465,7 @@ export function App() {
             <FindingsPanel
               findings={filteredFindings}
               deck={deck}
+              coverage={analysisState.coverage}
               onApplyFinding={(id) => void applyForFinding(id)}
               onIgnoreFinding={ignoreFinding}
               ignoredFindingIds={ignoredFindingIds}

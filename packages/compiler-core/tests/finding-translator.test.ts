@@ -314,29 +314,47 @@ describe("translateFinding", () => {
     });
   });
 
-  describe("NOT_ANALYZED findings", () => {
-    it("translates each reason code to a human message", () => {
-      const reasons = [
-        "LOW_ROLE_CONFIDENCE",
-        "MISSING_STYLEMAP_ROLE",
-        "UNSUPPORTED_OBJECT_TYPE",
-        "API_LIMITATION",
-        "AMBIGUOUS_TEXT_RUNS",
-        "AUTOFIT_PRESENT"
-      ] as const;
+  describe("NOT_ANALYZED findings — buckets", () => {
+    it("cant_inspect: title and Skipped risk label", () => {
+      const result = translateFinding(
+        baseFinding({
+          ruleId: "BP-COVERAGE-001",
+          coverage: "NOT_ANALYZED",
+          notAnalyzedReason: "UNSUPPORTED_OBJECT_TYPE"
+        })
+      );
+      expect(result.title).toBe("Can't inspect");
+      expect(result.riskLabel).toBe("Skipped");
+      expect(result.description).toContain("object type");
+      expect(result.actionLabel).toBeNull();
+    });
 
-      for (const reason of reasons) {
-        const result = translateFinding(
-          baseFinding({
-            ruleId: "BP-COVERAGE-001",
-            coverage: "NOT_ANALYZED",
-            notAnalyzedReason: reason
-          })
-        );
-        expect(result.title).toBe("Not analyzed");
-        expect(result.description.length).toBeGreaterThan(10);
-        expect(result.actionLabel).toBeNull();
-      }
+    it("cant_match: title and Needs review risk label", () => {
+      const result = translateFinding(
+        baseFinding({
+          ruleId: "BP-COVERAGE-001",
+          coverage: "NOT_ANALYZED",
+          notAnalyzedReason: "LOW_ROLE_CONFIDENCE"
+        })
+      );
+      expect(result.title).toBe("Can't match to exemplar");
+      expect(result.riskLabel).toBe("Needs review");
+      expect(result.description.length).toBeGreaterThan(10);
+      expect(result.actionLabel).toBeNull();
+    });
+
+    it("no_rule: fixed description and Not covered risk label", () => {
+      const result = translateFinding(
+        baseFinding({
+          ruleId: "BP-COVERAGE-001",
+          coverage: "NOT_ANALYZED",
+          notAnalyzedReason: "VALIDATION_UNAVAILABLE"
+        })
+      );
+      expect(result.title).toBe("No rule yet");
+      expect(result.riskLabel).toBe("Not covered");
+      expect(result.description).toBe("Magistrat doesn't have a check for this pattern yet.");
+      expect(result.actionLabel).toBeNull();
     });
   });
 

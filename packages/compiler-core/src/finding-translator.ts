@@ -6,6 +6,14 @@
  */
 import type { Finding } from "@magistrat/shared-types";
 
+export type TranslatedFindingRiskLabel =
+  | "Auto-fix"
+  | "Review required"
+  | "Manual only"
+  | "Skipped"
+  | "Needs review"
+  | "Not covered";
+
 export interface TranslatedFinding {
   /** Human-readable title, e.g. "Title font should be Arial, currently Calibri" */
   title: string;
@@ -14,7 +22,36 @@ export interface TranslatedFinding {
   /** Label for the primary action button (null if no action available) */
   actionLabel: string | null;
   /** Risk badge label */
-  riskLabel: "Auto-fix" | "Review required" | "Manual only";
+  riskLabel: TranslatedFindingRiskLabel;
+}
+
+export type NotAnalyzedBucket = "cant_inspect" | "cant_match" | "no_rule";
+
+/** UI section labels for grouping NOT_ANALYZED findings (matches translateNotAnalyzed titles). */
+export const NOT_ANALYZED_BUCKET_LABELS: Record<NotAnalyzedBucket, string> = {
+  cant_inspect: "Can't inspect",
+  cant_match: "Can't match to exemplar",
+  no_rule: "No rule yet"
+};
+
+const CANT_MATCH_REASONS = new Set<string>([
+  "LOW_ROLE_CONFIDENCE",
+  "MISSING_STYLEMAP_ROLE",
+  "EXPECTED_CONFIDENCE_LOW"
+]);
+
+/**
+ * Maps NOT_ANALYZED reason codes to UX buckets. Unknown reasons fall under cant_inspect.
+ */
+export function notAnalyzedBucket(reason: string | undefined): NotAnalyzedBucket {
+  const r = reason ?? "UNKNOWN";
+  if (CANT_MATCH_REASONS.has(r)) {
+    return "cant_match";
+  }
+  if (r === "VALIDATION_UNAVAILABLE") {
+    return "no_rule";
+  }
+  return "cant_inspect";
 }
 
 /**
@@ -34,13 +71,13 @@ export function translateFinding(finding: Finding): TranslatedFinding {
   return fallbackTranslation(finding);
 }
 
-const RISK_LABELS: Record<string, TranslatedFinding["riskLabel"]> = {
+const RISK_LABELS: Record<string, "Auto-fix" | "Review required" | "Manual only"> = {
   safe: "Auto-fix",
   caution: "Review required",
   manual: "Manual only"
 };
 
-function riskLabel(finding: Finding): TranslatedFinding["riskLabel"] {
+function riskLabel(finding: Finding): "Auto-fix" | "Review required" | "Manual only" {
   return RISK_LABELS[finding.risk] ?? "Manual only";
 }
 
@@ -197,11 +234,35 @@ function translateNotAnalyzed(finding: Finding): TranslatedFinding {
     VALIDATION_UNAVAILABLE: "Validation checks could not be performed."
   };
 
+  const bucket = notAnalyzedBucket(finding.notAnalyzedReason);
+  const description =
+    bucket === "no_rule"
+      ? "Magistrat doesn't have a check for this pattern yet."
+      : reasonMessages[reason] ?? `Analysis was skipped: ${reason}.`;
+
+  if (bucket === "cant_match") {
+    return {
+      title: "Can't match to exemplar",
+      description,
+      actionLabel: null,
+      riskLabel: "Needs review"
+    };
+  }
+
+  if (bucket === "no_rule") {
+    return {
+      title: "No rule yet",
+      description,
+      actionLabel: null,
+      riskLabel: "Not covered"
+    };
+  }
+
   return {
-    title: "Not analyzed",
-    description: reasonMessages[reason] ?? `Analysis was skipped: ${reason}.`,
+    title: "Can't inspect",
+    description,
     actionLabel: null,
-    riskLabel: "Manual only"
+    riskLabel: "Skipped"
   };
 }
 
