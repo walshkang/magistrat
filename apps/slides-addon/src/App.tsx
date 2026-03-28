@@ -3,6 +3,7 @@ import type { DocumentStateV1 } from "@magistrat/shared-types";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AlignmentScoreBar } from "./components/AlignmentScoreBar.js";
 import { ChangeHistory } from "./components/ChangeHistory.js";
+import { Minimap } from "./components/Minimap.js";
 import { DevModeToggle } from "./components/DevModeToggle.js";
 import { FindingsPanel } from "./components/FindingsPanel.js";
 import { useDevMode } from "./context/DevModeContext.js";
@@ -10,6 +11,7 @@ import { useAnalysis } from "./hooks/useAnalysis.js";
 import { usePatchLog } from "./hooks/usePatchLog.js";
 import { messageLooksPersistent } from "./messageToast.js";
 import { getRestoreUiDisabledReason } from "./patchLog.js";
+import { computeSlideStatuses } from "./utils/slideStatus.js";
 
 export function App() {
   const { devMode } = useDevMode();
@@ -22,6 +24,7 @@ export function App() {
   const [lastReconciledIso, setLastReconciledIso] = useState<string>("");
   const [exemplarExpanded, setExemplarExpanded] = useState(true);
   const hasCollapsedExemplarAfterScanRef = useRef(false);
+  const [selectedSlideId, setSelectedSlideId] = useState<string | null>(null);
 
   const {
     loading,
@@ -46,6 +49,9 @@ export function App() {
   });
 
   useEffect(() => {
+    if (analysisState && !analysisState.stale) {
+      setSelectedSlideId(null);
+    }
     if (analysisState && !hasCollapsedExemplarAfterScanRef.current) {
       setExemplarExpanded(false);
       hasCollapsedExemplarAfterScanRef.current = true;
@@ -75,8 +81,30 @@ export function App() {
   });
 
   const safePatchCount = analysisState?.safePatches.length ?? 0;
-  const totalFindings = analysisState?.findings.length ?? documentState?.findings.length ?? 0;
   const hasFindings = (analysisState?.findings.length ?? 0) > 0;
+
+  const filteredFindings = useMemo(() => {
+    if (!analysisState) {
+      return [];
+    }
+    if (!selectedSlideId) {
+      return analysisState.findings;
+    }
+    return analysisState.findings.filter((f) => f.slideId === selectedSlideId);
+  }, [analysisState, selectedSlideId]);
+
+  const slideStatuses = useMemo(() => {
+    if (!analysisState || !deck) {
+      return [];
+    }
+    return computeSlideStatuses(analysisState.findings, deck);
+  }, [analysisState, deck]);
+
+  const filteredActionableCount = useMemo(
+    () => filteredFindings.filter((f) => f.coverage === "ANALYZED").length,
+    [filteredFindings]
+  );
+
   const canApplySafeFromSummary = Boolean(
     analysisState && documentState && deck && safePatchCount > 0 && applyPatchCapability.supported
   );
@@ -95,7 +123,10 @@ export function App() {
     let safe = 0;
     let caution = 0;
     let manual = 0;
-    for (const f of analysisState.findings) {
+    for (const f of filteredFindings) {
+      if (f.coverage !== "ANALYZED") {
+        continue;
+      }
       if (f.risk === "safe") {
         safe += 1;
       } else if (f.risk === "caution") {
@@ -105,7 +136,7 @@ export function App() {
       }
     }
     return { safe, caution, manual };
-  }, [analysisState]);
+  }, [analysisState, filteredFindings]);
 
   const exemplarSlideLabel =
     deck?.slides.find((s) => s.slideId === selectedExemplarSlideId)?.title ||
@@ -248,6 +279,15 @@ export function App() {
       {analysisState ? (
         <>
           <AlignmentScoreBar score={analysisState.alignmentScore} />
+
+          {slideStatuses.length > 0 ? (
+            <Minimap
+              slides={slideStatuses}
+              selectedSlideId={selectedSlideId}
+              onSelectSlide={setSelectedSlideId}
+            />
+          ) : null}
+
           <section
             className={`summary-panel${analysisState.findings.length === 0 ? " summary-panel--all-clear" : ""}`}
             aria-label="Scan summary"
@@ -263,7 +303,9 @@ export function App() {
               <>
                 <div className="summary-panel__top-row">
                   <p className="summary-panel__meta">
-                    {totalFindings} {totalFindings === 1 ? "finding" : "findings"}
+                    {selectedSlideId
+                      ? `${filteredActionableCount} of ${analyzedFindingsCount} findings (filtered)`
+                      : `${analyzedFindingsCount} ${analyzedFindingsCount === 1 ? "finding" : "findings"}`}
                   </p>
                 </div>
                 <p className="summary-panel__breakdown">
@@ -345,14 +387,14 @@ export function App() {
           <section className="panel">
             <h2>Linter stream</h2>
             <p>
-              {analysisState.findings.length} findings · safe={analysisState.safePatches.length} · caution=
+              {filteredFindings.length} findings · safe={analysisState.safePatches.length} · caution=
               {analysisState.cautionPatches.length} · manual={analysisState.manualPatches.length}
             </p>
             {analysisState.stale && !devMode ? (
               <p className="muted">Loaded from persisted state; run clean up to refresh against current deck.</p>
             ) : null}
             <FindingsPanel
-              findings={analysisState.findings}
+              findings={filteredFindings}
               deck={deck}
               onApplyFinding={(id) => void applyForFinding(id)}
             />

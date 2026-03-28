@@ -1,14 +1,11 @@
 # Magistrat Context
 
 ## Active Phase
-- Phase 2B: "Trust Loop Polish" — Ratify UX, Change History, then Rule Coverage (8→16)
+- Phase 3: "Navigate" — Interactive Minimap + Per-Slide Fix
 
 ## Active Epic
-- **2B-1: Ratify UX** — promote button, gate on 0 findings, victory state
-- 2B-2: Change History — consumer-grade audit trail (translated patch log, always visible)
-- 2B-3: Batch 1 rules — DONE (BP-TYPO-005, BP-COLOR-002, BP-HYGIENE-002, BP-BULLET-002)
-- 2B-4: Batch 2 rules — BP-TYPO-004, BP-COLOR-003, BP-HYGIENE-003, BP-HYGIENE-005
-- Note: Ratify gate on 0 findings creates natural pull for Phase 4 Exceptions/Ignore
+- Next: scope Phase 3 (minimap, per-slide filtering, per-finding apply)
+- Stitch future-state screen available for reference (minimap + exceptions)
 
 ## Immediate Blocker
 - None.
@@ -20,7 +17,7 @@ See `~/.claude/plans/keen-fluttering-sparrow.md` for full plan.
 |-------|----------|--------|
 | 1. Translate (consumer UI) | 2 wk | **Complete** |
 | 2A. Alignment Score | 2 wk | **Complete** |
-| 2B. Rule Coverage (8→16) | 4 wk | Queued |
+| 2B. Rule Coverage (8→16) + Trust Loop Polish | 4 wk | **Complete** — 16 rules, ratify UX, change history |
 | 3. Interactive Minimap | 2 wk | Queued |
 | 4. Exceptions / Ignore | 1 wk | Queued |
 | 5. Ship (CI, deploy, reliability) | 2 wk | Queued |

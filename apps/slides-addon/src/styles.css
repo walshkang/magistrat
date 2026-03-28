@@ -888,6 +888,70 @@ li {
   color: var(--text-tertiary);
 }
 
+/* —— Minimap —— */
+.minimap {
+  padding: 8px 12px;
+  background: var(--surface-card);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+}
+.minimap__strip {
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+}
+.minimap__slide {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 4px 6px;
+  border: none;
+  background: var(--surface-inset);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  min-width: 32px;
+  transition: background 0.15s ease;
+}
+.minimap__slide:hover {
+  background: var(--surface-card-hover);
+}
+.minimap__slide--selected {
+  background: var(--surface-card);
+  box-shadow: 0 0 0 2px var(--accent);
+}
+.minimap__index {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  line-height: 1;
+}
+.minimap__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+.minimap__dot--pass {
+  background: var(--status-pass);
+}
+.minimap__dot--warn {
+  background: var(--status-warn);
+}
+.minimap__dot--error {
+  background: var(--status-error);
+}
+.minimap__dot--not-analyzed {
+  background: var(--status-muted);
+}
+.minimap__clear {
+  display: block;
+  margin-top: 6px;
+  font-size: 11px;
+}
+
 @media (min-width: 760px) {
   .shell {
     max-width: 760px;
