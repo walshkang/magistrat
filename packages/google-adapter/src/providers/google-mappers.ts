@@ -8,6 +8,8 @@ export function mapPresentationToDeckSnapshot(presentation: GoogleBridgePresenta
       slideId: slide.slideId,
       index: slide.index,
       title: slide.title ?? "",
+      slideWidth: slide.pageWidthPt ?? 720,
+      slideHeight: slide.pageHeightPt ?? 405,
       shapes: [...slide.pageElements]
         .sort((a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0) || a.objectId.localeCompare(b.objectId))
         .map(mapPageElement)

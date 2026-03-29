@@ -14,6 +14,12 @@ export interface RoleStyleTokens {
   bulletGlyph?: string | undefined;
   /** Exemplar callout shape fill when present */
   fillColor?: string | undefined;
+  /** Exemplar TITLE band: centroid of shape box centers (pt), when layout cluster exists */
+  geometryCentroid?: { x: number; y: number };
+  /** True when exemplar has at least one usable geometry sample for this role (layout rules) */
+  hasGeometryCluster?: boolean;
+  /** Exemplar FOOTER band: median of shape tops (pt) */
+  footerTopMedian?: number;
 }
 
 export type StyleMap = Partial<Record<RoleV1, RoleStyleTokens>>;

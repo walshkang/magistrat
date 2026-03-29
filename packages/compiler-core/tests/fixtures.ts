@@ -53,6 +53,8 @@ export function createSlide(overrides: Partial<SlideSnapshot> = {}): SlideSnapsh
     slideId: overrides.slideId ?? "slide-1",
     index: overrides.index ?? 1,
     title: overrides.title ?? "Slide",
+    slideWidth: overrides.slideWidth ?? 720,
+    slideHeight: overrides.slideHeight ?? 405,
     shapes: overrides.shapes ?? [createShape()]
   };
 }
@@ -61,6 +63,7 @@ export function createDeck(overrides: Partial<DeckSnapshot> = {}): DeckSnapshot 
   return {
     deckId: overrides.deckId ?? "deck-1",
     generatedAtIso: overrides.generatedAtIso ?? "2026-02-17T00:00:00.000Z",
+    masterLayoutMetadataAvailable: overrides.masterLayoutMetadataAvailable ?? true,
     slides: overrides.slides ?? [createSlide()]
   };
 }

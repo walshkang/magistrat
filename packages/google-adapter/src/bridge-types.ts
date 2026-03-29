@@ -65,6 +65,10 @@ export interface GoogleBridgeSlide {
   slideId: string;
   index: number;
   title?: string;
+  /** Page width in points when provided by host */
+  pageWidthPt?: number;
+  /** Page height in points when provided by host */
+  pageHeightPt?: number;
   pageElements: GoogleBridgePageElement[];
 }
 

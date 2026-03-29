@@ -59,11 +59,17 @@ export interface SlideSnapshot {
   slideId: string;
   index: number;
   title: string;
+  /** Slide canvas width in points */
+  slideWidth: number;
+  /** Slide canvas height in points */
+  slideHeight: number;
   shapes: ShapeSnapshot[];
 }
 
 export interface DeckSnapshot {
   deckId: string;
   generatedAtIso: string;
+  /** When true, host provided master/layout metadata (v1: BP-MASTERS-001 skips when set) */
+  masterLayoutMetadataAvailable?: boolean;
   slides: SlideSnapshot[];
 }

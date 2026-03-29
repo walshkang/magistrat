@@ -53,10 +53,56 @@ export function buildStyleMap(
     }
   }
 
+  augmentLayoutBands(styleMap, inferredSlide);
+
   return {
     styleMap,
     normalizedTokens
   };
+}
+
+function augmentLayoutBands(styleMap: StyleMap, inferredSlide: SlideSnapshot): void {
+  const titleShapes = inferredSlide.shapes.filter(
+    (shape) =>
+      shape.inferredRole === "TITLE" &&
+      shape.textRuns.length > 0 &&
+      shape.geometry.width * shape.geometry.height > 0
+  );
+  const footerShapes = inferredSlide.shapes.filter(
+    (shape) =>
+      shape.inferredRole === "FOOTER" &&
+      shape.textRuns.length > 0 &&
+      shape.geometry.width * shape.geometry.height > 0
+  );
+
+  const titleEntry = styleMap.TITLE;
+  if (titleEntry && titleShapes.length > 0) {
+    let sumX = 0;
+    let sumY = 0;
+    for (const shape of titleShapes) {
+      const g = shape.geometry;
+      sumX += g.left + g.width / 2;
+      sumY += g.top + g.height / 2;
+    }
+    titleEntry.geometryCentroid = {
+      x: sumX / titleShapes.length,
+      y: sumY / titleShapes.length
+    };
+    titleEntry.hasGeometryCluster = true;
+  } else if (titleEntry) {
+    titleEntry.hasGeometryCluster = false;
+  }
+
+  const footerEntry = styleMap.FOOTER;
+  if (footerEntry && footerShapes.length > 0) {
+    const tops = [...footerShapes.map((s) => s.geometry.top)].sort((a, b) => a - b);
+    const mid = Math.floor(tops.length / 2);
+    footerEntry.footerTopMedian =
+      tops.length % 2 === 1 ? tops[mid]! : (tops[mid - 1]! + tops[mid]!) / 2;
+    footerEntry.hasGeometryCluster = true;
+  } else if (footerEntry) {
+    footerEntry.hasGeometryCluster = false;
+  }
 }
 
 function selectDominantRun(

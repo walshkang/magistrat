@@ -43,6 +43,8 @@ function createDeck(shapes: Array<{ objectId: string; fontFamily: string }>): De
         slideId: "slide-1",
         index: 1,
         title: "Slide",
+        slideWidth: 720,
+        slideHeight: 405,
         shapes: shapes.map((shape, index) => ({
           objectId: shape.objectId,
           name: shape.objectId,

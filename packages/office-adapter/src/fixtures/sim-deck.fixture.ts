@@ -3,11 +3,14 @@ import type { DeckSnapshot } from "@magistrat/shared-types";
 export const simDeckFixture: DeckSnapshot = {
   deckId: "local-document",
   generatedAtIso: "1970-01-01T00:00:00.000Z",
+  masterLayoutMetadataAvailable: true,
   slides: [
     {
       slideId: "slide-1",
       index: 1,
       title: "Sample slide",
+      slideWidth: 720,
+      slideHeight: 405,
       shapes: [
         {
           objectId: "shape-title",

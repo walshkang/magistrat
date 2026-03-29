@@ -175,6 +175,8 @@ async function readDeckSnapshot(options: OfficeReadonlyProviderOptions): Promise
         slideId: valueOr(slide.id, `slide-${index + 1}`),
         index: typeof slide.index === "number" ? slide.index : index + 1,
         title: valueOr(slide.title, ""),
+        slideWidth: 720,
+        slideHeight: 405,
         shapes: shapesBySlide.get(slide) ?? []
       }))
     };

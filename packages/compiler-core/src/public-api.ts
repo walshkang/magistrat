@@ -1,7 +1,8 @@
 export { computeAlignmentScore } from "./alignment-score.js";
 export type { AlignmentScore } from "./alignment-score.js";
 export { buildDeckIr } from "./build-deck-ir.js";
-export { runChecks } from "./checks.js";
+export { runChecks, collectGroupSafetyFindings } from "./checks.js";
+export type { RunChecksResult } from "./checks.js";
 export { SAFE_PATCH_OPS, CAUTION_PATCH_OPS, MANUAL_PATCH_OPS, PLAYBOOK_RULE_COUNT } from "./constants.js";
 export { scoreExemplarHealth } from "./exemplar-health.js";
 export { planPatches } from "./patch-planner.js";

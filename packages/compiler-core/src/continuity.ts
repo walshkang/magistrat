@@ -73,6 +73,25 @@ export function runContinuityChecks(deck: DeckSnapshot): RunContinuityChecksResu
     }
   }
 
+  const sectionHeaders: { slideId: string; archetype: string }[] = [];
+  const orderedSlides = [...deck.slides].sort((a, b) => a.index - b.index || a.slideId.localeCompare(b.slideId));
+  for (const slide of orderedSlides) {
+    if (isSectionHeaderCandidate(slide)) {
+      sectionHeaders.push({ slideId: slide.slideId, archetype: deriveSectionHeaderArchetype(slide) });
+    }
+  }
+  if (sectionHeaders.length >= 2) {
+    const expectedArchetype = sectionHeaders[0]!.archetype;
+    for (let i = 1; i < sectionHeaders.length; i++) {
+      const entry = sectionHeaders[i]!;
+      if (entry.archetype !== expectedArchetype) {
+        findings.push(
+          createSectionHeaderArchetypeFinding(entry.slideId, entry.archetype, expectedArchetype)
+        );
+      }
+    }
+  }
+
   return {
     findings,
     continuityStatus: "RAN",
@@ -225,6 +244,75 @@ interface AgendaMismatchInput {
   matchedCount: number;
   totalAgendaItems: number;
   comparedTitleCount: number;
+}
+
+/**
+ * Section header slide (v1): has visible TITLE text and no BODY or bullet list text.
+ * Used only for BP-CONT-003 archetype comparison.
+ */
+function isSectionHeaderCandidate(slide: DeckSnapshot["slides"][number]): boolean {
+  let hasTitleText = false;
+  for (const shape of slide.shapes) {
+    if (shape.inferredRole === "TITLE" && extractShapeText(shape).trim().length > 0) {
+      hasTitleText = true;
+      break;
+    }
+  }
+  if (!hasTitleText) {
+    return false;
+  }
+
+  for (const shape of slide.shapes) {
+    const role = shape.inferredRole ?? "UNKNOWN";
+    const text = extractShapeText(shape).trim();
+    if (text.length === 0) {
+      continue;
+    }
+    if (role === "BODY" || role === "BULLET_L1" || role === "BULLET_L2") {
+      return false;
+    }
+  }
+  return true;
+}
+
+function deriveSectionHeaderArchetype(slide: DeckSnapshot["slides"][number]): string {
+  const rolesWithText = new Set<string>();
+  for (const shape of slide.shapes) {
+    const text = extractShapeText(shape).trim();
+    if (text.length === 0) {
+      continue;
+    }
+    const role = shape.inferredRole ?? "UNKNOWN";
+    if (role !== "UNKNOWN") {
+      rolesWithText.add(role);
+    }
+  }
+  return [...rolesWithText].sort().join("+");
+}
+
+function createSectionHeaderArchetypeFinding(
+  slideId: string,
+  observedArchetype: string,
+  expectedArchetype: string
+): Finding {
+  return {
+    id: `finding-${stableHash([slideId, "BP-CONT-003", observedArchetype, expectedArchetype])}`,
+    ruleId: "BP-CONT-003",
+    source: "continuity",
+    slideId,
+    observed: { sectionHeaderArchetype: observedArchetype },
+    expected: { sectionHeaderArchetype: expectedArchetype },
+    evidence: [
+      {
+        type: "REFERENTIAL_EVIDENCE",
+        summary: "Section header slide role mix differs from the first section header in deck order."
+      }
+    ],
+    confidence: 1,
+    risk: "manual",
+    severity: "info",
+    coverage: "ANALYZED"
+  };
 }
 
 function createAgendaMismatchFinding(input: AgendaMismatchInput): Finding {

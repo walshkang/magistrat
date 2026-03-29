@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { runChecks } from "../src/public-api.js";
+import { inferRoles, runChecks } from "../src/public-api.js";
 import { runContinuityChecks } from "../src/continuity.js";
 import { createDeck, createShape, createSlide } from "./fixtures.js";
 
@@ -137,6 +137,94 @@ describe("runContinuityChecks", () => {
     const finding = result.findings.find((candidate) => candidate.ruleId === "BP-CONT-002");
 
     expect(finding).toBeUndefined();
+  });
+
+  it("emits BP-CONT-003 when two section headers use different role archetypes", () => {
+    const titleRun = {
+      text: "Section",
+      fontFamily: "Aptos Display",
+      fontSizePt: 30,
+      bold: true,
+      italic: false,
+      fontColor: "#112233",
+      fontAlpha: 1
+    };
+    const subRun = { ...titleRun, fontSizePt: 18, text: "Subtitle" };
+    const deck = createDeck({
+      slides: [
+        createSlide({
+          slideId: "sec1",
+          index: 1,
+          title: "A",
+          shapes: [
+            createShape({
+              objectId: "t1",
+              inferredRole: "TITLE",
+              inferredRoleScore: 0.95,
+              geometry: { left: 20, top: 30, width: 400, height: 60, rotation: 0 },
+              textRuns: [titleRun],
+              paragraphs: [{ level: 0, text: "Section A" }]
+            })
+          ]
+        }),
+        createSlide({
+          slideId: "sec2",
+          index: 2,
+          title: "B",
+          shapes: [
+            createShape({
+              objectId: "t2",
+              inferredRole: "TITLE",
+              inferredRoleScore: 0.95,
+              geometry: { left: 20, top: 30, width: 400, height: 60, rotation: 0 },
+              textRuns: [titleRun],
+              paragraphs: [{ level: 0, text: "Section B" }]
+            }),
+            createShape({
+              objectId: "st2",
+              inferredRole: "SUBTITLE",
+              inferredRoleScore: 0.9,
+              geometry: { left: 20, top: 100, width: 400, height: 40, rotation: 0 },
+              textRuns: [subRun],
+              paragraphs: [{ level: 0, text: "Subtitle" }]
+            })
+          ]
+        })
+      ]
+    });
+    const inferred = inferRoles(deck);
+    const result = runContinuityChecks(inferred.deck);
+    expect(result.findings.some((f) => f.ruleId === "BP-CONT-003")).toBe(true);
+  });
+
+  it("does not emit BP-CONT-003 when section headers share the same archetype", () => {
+    const titleRun = {
+      text: "Section",
+      fontFamily: "Aptos Display",
+      fontSizePt: 30,
+      bold: true,
+      italic: false,
+      fontColor: "#112233",
+      fontAlpha: 1
+    };
+    const mkTitle = (id: string) =>
+      createShape({
+        objectId: id,
+        inferredRole: "TITLE",
+        inferredRoleScore: 0.95,
+        geometry: { left: 20, top: 30, width: 400, height: 60, rotation: 0 },
+        textRuns: [titleRun],
+        paragraphs: [{ level: 0, text: "Section" }]
+      });
+    const deck = createDeck({
+      slides: [
+        createSlide({ slideId: "sec1", index: 1, title: "A", shapes: [mkTitle("t1")] }),
+        createSlide({ slideId: "sec2", index: 2, title: "B", shapes: [mkTitle("t2")] })
+      ]
+    });
+    const inferred = inferRoles(deck);
+    const result = runContinuityChecks(inferred.deck);
+    expect(result.findings.some((f) => f.ruleId === "BP-CONT-003")).toBe(false);
   });
 
   it("does not emit BP-CONT-002 when no agenda slide is present", () => {

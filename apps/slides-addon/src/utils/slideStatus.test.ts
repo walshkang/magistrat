@@ -25,6 +25,8 @@ function deck(...slides: { slideId: string; index: number; title?: string }[]): 
       slideId: s.slideId,
       index: s.index,
       title: s.title ?? "",
+      slideWidth: 720,
+      slideHeight: 405,
       shapes: []
     }))
   };

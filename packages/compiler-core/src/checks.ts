@@ -3,12 +3,15 @@ import type {
   DeckSnapshot,
   Evidence,
   Finding,
+  GeometrySnapshot,
   NotAnalyzedReasonCode,
   PatchOp,
   RoleV1,
   RoleStyleTokens,
-  StyleMap
+  StyleMap,
+  ToleranceConfig
 } from "@magistrat/shared-types";
+import { defaultToleranceConfig, getFontSizeTolerance } from "@magistrat/shared-types";
 import { runContinuityChecks } from "./continuity.js";
 import { ROLE_CONFIDENCE_MIN } from "./constants.js";
 import { stableHash } from "./hash.js";
@@ -20,7 +23,8 @@ export interface RunChecksResult {
   suggestedPatches: PatchOp[];
 }
 
-export function runChecks(deck: DeckSnapshot, styleMap: StyleMap): RunChecksResult {
+export function runChecks(deck: DeckSnapshot, styleMap: StyleMap, tolerance?: ToleranceConfig): RunChecksResult {
+  const tol = tolerance ?? defaultToleranceConfig();
   const findings: Finding[] = [];
   const suggestedPatches: PatchOp[] = [];
 
@@ -42,6 +46,7 @@ export function runChecks(deck: DeckSnapshot, styleMap: StyleMap): RunChecksResu
   };
 
   const dominantProofingLanguage = computeDominantProofingLanguage(deck);
+  const exemplarSlideId = resolveExemplarSlideId(deck);
 
   for (const slide of deck.slides) {
     for (const shape of slide.shapes) {
@@ -60,7 +65,14 @@ export function runChecks(deck: DeckSnapshot, styleMap: StyleMap): RunChecksResu
 
       markAnalyzed(slide.slideId, shape.objectId);
 
-      for (const finding of evaluateObjectHygiene(slide.slideId, shape.objectId, shape)) {
+      for (const finding of evaluateObjectHygiene(
+        slide.slideId,
+        shape.objectId,
+        shape,
+        tol,
+        slide.slideWidth,
+        slide.slideHeight
+      )) {
         pushFinding(finding);
       }
 
@@ -116,6 +128,16 @@ export function runChecks(deck: DeckSnapshot, styleMap: StyleMap): RunChecksResu
           )
         );
         continue;
+      }
+
+      if (
+        (role === "TITLE" || role === "FOOTER") &&
+        roleScore >= 0.85 &&
+        shape.inspectability.typography
+      ) {
+        for (const finding of evaluateTitleFooterLayoutFindings(slide, shape, role, styleMap, tol)) {
+          pushFinding(finding);
+        }
       }
 
       if (roleScore < ROLE_CONFIDENCE_MIN.safe) {
@@ -175,7 +197,8 @@ export function runChecks(deck: DeckSnapshot, styleMap: StyleMap): RunChecksResu
         bulletGlyph: shape.paragraphs[0]?.bulletGlyph,
         lineSpacing: shape.paragraphs[0]?.lineSpacing,
         fillColor: shape.fillColor,
-        skipBulletChecks: bulletChecksBlocked
+        skipBulletChecks: bulletChecksBlocked,
+        tolerance: tol
       });
 
       for (const finding of mismatchFindings.findings) {
@@ -185,9 +208,28 @@ export function runChecks(deck: DeckSnapshot, styleMap: StyleMap): RunChecksResu
       suggestedPatches.push(...mismatchFindings.patches);
     }
 
-    for (const finding of evaluateDuplicateOverlaps(slide)) {
+    for (const shape of slide.shapes) {
+      if (!shape.supportedForAnalysis || !shape.inspectability.typography) {
+        continue;
+      }
+      const r = shape.inferredRole ?? "UNKNOWN";
+      const rs = shape.inferredRoleScore ?? 0;
+      for (const finding of evaluateLayoutMicroSnapFindings(slide, shape, r, rs, tol, exemplarSlideId)) {
+        pushFinding(finding);
+      }
+    }
+
+    for (const finding of evaluateDuplicateOverlaps(slide, tol)) {
       pushFinding(finding);
     }
+  }
+
+  for (const finding of collectGroupSafetyFindings(deck, suggestedPatches)) {
+    pushFinding(finding);
+  }
+
+  if (deck.masterLayoutMetadataAvailable !== true) {
+    pushFinding(createMastersHygieneFinding(deck));
   }
 
   const continuityResult = runContinuityChecks(deck);
@@ -220,7 +262,10 @@ export function runChecks(deck: DeckSnapshot, styleMap: StyleMap): RunChecksResu
 function evaluateObjectHygiene(
   slideId: string,
   objectId: string,
-  shape: DeckSnapshot["slides"][number]["shapes"][number]
+  shape: DeckSnapshot["slides"][number]["shapes"][number],
+  tol: ToleranceConfig,
+  slideWidth: number,
+  slideHeight: number
 ): Finding[] {
   const findings: Finding[] = [];
   const role = shape.inferredRole ?? "UNKNOWN";
@@ -251,7 +296,7 @@ function evaluateObjectHygiene(
 
   const isPotentialGhost =
     !shape.visible &&
-    shape.geometry.width * shape.geometry.height > 200 &&
+    shape.geometry.width * shape.geometry.height > tol.ghostMinArea &&
     shape.zIndex > 0 &&
     shape.textRuns.every((textRun) => textRun.fontAlpha === 0);
 
@@ -283,8 +328,8 @@ function evaluateObjectHygiene(
   const dominantRun = shape.textRuns[0];
   if (
     dominantRun &&
-    dominantRun.fontAlpha > 0.01 &&
-    dominantRun.fontAlpha < 0.95
+    dominantRun.fontAlpha > tol.semiTransparentAlphaMin &&
+    dominantRun.fontAlpha < tol.semiTransparentAlphaMax
   ) {
     const findingId = `finding-${stableHash([slideId, objectId, "semi_transparent_text"])}`;
     findings.push({
@@ -307,7 +352,7 @@ function evaluateObjectHygiene(
     });
   }
 
-  const canvas = { left: 0, top: 0, right: 720, bottom: 405 };
+  const canvas = { left: 0, top: 0, right: slideWidth, bottom: slideHeight };
   const geo = shape.geometry;
   const obj = {
     left: geo.left,
@@ -323,7 +368,7 @@ function evaluateObjectHygiene(
   const objectArea = geo.width * geo.height;
   const overlapRatio = objectArea > 0 ? overlapArea / objectArea : 1;
 
-  if (overlapRatio < 0.1) {
+  if (overlapRatio < tol.offSlideOverlapRatio) {
     const findingId = `finding-${stableHash([slideId, objectId, "off_slide"])}`;
     findings.push({
       id: findingId,
@@ -339,7 +384,7 @@ function evaluateObjectHygiene(
         height: geo.height,
         overlapRatio
       },
-      expected: { minOverlapRatio: 0.1 },
+      expected: { minOverlapRatio: tol.offSlideOverlapRatio },
       evidence: [
         evidence("PLAYBOOK_EVIDENCE", "Slide canvas overlap policy."),
         evidence("GEOMETRIC_EVIDENCE", "Object bounding box is <10% within the slide canvas.")
@@ -404,6 +449,7 @@ interface EvaluateInput {
   lineSpacing?: number | undefined;
   fillColor?: string | undefined;
   skipBulletChecks: boolean;
+  tolerance: ToleranceConfig;
 }
 
 function evaluateTypographyAndStructure(input: EvaluateInput): {
@@ -524,7 +570,8 @@ function evaluateTypographyAndStructure(input: EvaluateInput): {
     });
   }
 
-  if (Math.abs(input.observed.fontSizePt - input.expected.fontSizePt) > 0.5) {
+  const fontSizeTol = getFontSizeTolerance(input.tolerance, input.role);
+  if (Math.abs(input.observed.fontSizePt - input.expected.fontSizePt) > fontSizeTol) {
     const findingId = `finding-${stableHash([...baseMeta, "font_size"])}`;
     const patchId = `patch-${stableHash([findingId, "SET_FONT_SIZE"])}`;
 
@@ -670,7 +717,7 @@ function evaluateTypographyAndStructure(input: EvaluateInput): {
   if (
     input.expected.lineSpacing !== undefined &&
     input.lineSpacing !== undefined &&
-    lineSpacingDiff > 0.05 + 1e-9
+    lineSpacingDiff > input.tolerance.lineSpacingAbs + 1e-9
   ) {
     const findingId = `finding-${stableHash([...baseMeta, "line_spacing"])}`;
     const patchId = `patch-${stableHash([findingId, "SET_LINE_SPACING"])}`;
@@ -894,7 +941,7 @@ function pickLikelyDuplicate(
   return a.objectId > b.objectId ? a : b;
 }
 
-function evaluateDuplicateOverlaps(slide: DeckSnapshot["slides"][number]): Finding[] {
+function evaluateDuplicateOverlaps(slide: DeckSnapshot["slides"][number], tol: ToleranceConfig): Finding[] {
   const findings: Finding[] = [];
   const shapes = slide.shapes.filter((s) => s.supportedForAnalysis);
   for (let i = 0; i < shapes.length; i++) {
@@ -905,7 +952,7 @@ function evaluateDuplicateOverlaps(slide: DeckSnapshot["slides"][number]): Findi
         continue;
       }
       const iou = computeIOU(a.geometry, b.geometry);
-      if (iou < 0.8) {
+      if (iou < tol.duplicateIouThreshold) {
         continue;
       }
       const textA = normalizeShapeText(a);
@@ -949,6 +996,233 @@ function evaluateDuplicateOverlaps(slide: DeckSnapshot["slides"][number]): Findi
     }
   }
   return findings;
+}
+
+function resolveExemplarSlideId(deck: DeckSnapshot): string {
+  const sorted = [...deck.slides].sort((a, b) => a.index - b.index || a.slideId.localeCompare(b.slideId));
+  return sorted[0]?.slideId ?? "";
+}
+
+const LAYOUT003_ROLES = new Set<RoleV1>([
+  "TITLE",
+  "SUBTITLE",
+  "BODY",
+  "BULLET_L1",
+  "BULLET_L2",
+  "FOOTER",
+  "CALLOUT"
+]);
+
+function maxSnapDeltaToWholePoints(geometry: GeometrySnapshot): number {
+  const vals = [geometry.left, geometry.top, geometry.width, geometry.height];
+  let max = 0;
+  for (const v of vals) {
+    const d = Math.abs(v - Math.round(v));
+    if (d > max) {
+      max = d;
+    }
+  }
+  return max;
+}
+
+function hasMicroFractions(geometry: GeometrySnapshot): boolean {
+  return maxSnapDeltaToWholePoints(geometry) > 1e-6;
+}
+
+function evaluateTitleFooterLayoutFindings(
+  slide: DeckSnapshot["slides"][number],
+  shape: DeckSnapshot["slides"][number]["shapes"][number],
+  role: RoleV1,
+  styleMap: StyleMap,
+  tol: ToleranceConfig
+): Finding[] {
+  const findings: Finding[] = [];
+  const g = shape.geometry;
+  const cx = g.left + g.width / 2;
+  const cy = g.top + g.height / 2;
+  const roleScore = shape.inferredRoleScore ?? 0;
+
+  if (role === "TITLE") {
+    const title = styleMap.TITLE;
+    if (!title?.hasGeometryCluster || !title.geometryCentroid) {
+      return findings;
+    }
+    const dist = Math.hypot(cx - title.geometryCentroid.x, cy - title.geometryCentroid.y);
+    if (dist > tol.positionPt) {
+      const findingId = `finding-${stableHash([slide.slideId, shape.objectId, "BP-LAYOUT-001"])}`;
+      findings.push({
+        id: findingId,
+        ruleId: "BP-LAYOUT-001",
+        source: "exemplar",
+        slideId: slide.slideId,
+        objectId: shape.objectId,
+        role,
+        observed: { boxCenter: { x: cx, y: cy }, distancePt: dist },
+        expected: { geometryCentroid: title.geometryCentroid, tolerancePt: tol.positionPt },
+        evidence: [
+          evidence("EXEMPLAR_EVIDENCE", "Exemplar title band centroid from style map."),
+          evidence("GEOMETRIC_EVIDENCE", "Title box center is outside the exemplar tolerance band.")
+        ],
+        confidence: roleScore,
+        risk: "manual",
+        severity: "info",
+        coverage: "ANALYZED"
+      });
+    }
+    return findings;
+  }
+
+  if (role === "FOOTER") {
+    const footer = styleMap.FOOTER;
+    if (!footer?.hasGeometryCluster || footer.footerTopMedian === undefined) {
+      return findings;
+    }
+    const delta = Math.abs(g.top - footer.footerTopMedian);
+    if (delta > tol.positionPt) {
+      const findingId = `finding-${stableHash([slide.slideId, shape.objectId, "BP-LAYOUT-002"])}`;
+      findings.push({
+        id: findingId,
+        ruleId: "BP-LAYOUT-002",
+        source: "exemplar",
+        slideId: slide.slideId,
+        objectId: shape.objectId,
+        role,
+        observed: { top: g.top, deltaFromMedian: delta },
+        expected: { footerTopMedian: footer.footerTopMedian, tolerancePt: tol.positionPt },
+        evidence: [
+          evidence("EXEMPLAR_EVIDENCE", "Exemplar footer top median from style map."),
+          evidence("GEOMETRIC_EVIDENCE", "Footer top is outside the exemplar tolerance band.")
+        ],
+        confidence: roleScore,
+        risk: "manual",
+        severity: "info",
+        coverage: "ANALYZED"
+      });
+    }
+  }
+
+  return findings;
+}
+
+function evaluateLayoutMicroSnapFindings(
+  slide: DeckSnapshot["slides"][number],
+  shape: DeckSnapshot["slides"][number]["shapes"][number],
+  role: RoleV1,
+  roleScore: number,
+  tol: ToleranceConfig,
+  exemplarSlideId: string
+): Finding[] {
+  if (!LAYOUT003_ROLES.has(role) || roleScore < 0.8) {
+    return [];
+  }
+  const g = shape.geometry;
+  if (!hasMicroFractions(g)) {
+    return [];
+  }
+  const snapDelta = maxSnapDeltaToWholePoints(g);
+
+  if (slide.slideId !== exemplarSlideId) {
+    return [
+      createNotAnalyzedFinding(
+        slide.slideId,
+        shape.objectId,
+        "EXPECTED_CONFIDENCE_LOW",
+        "Micro-snap layout check runs on the exemplar slide only in v1."
+      )
+    ];
+  }
+
+  if (snapDelta <= tol.geometryMicroSnapDeltaPt) {
+    const findingId = `finding-${stableHash([slide.slideId, shape.objectId, "BP-LAYOUT-003"])}`;
+    return [
+      {
+        id: findingId,
+        ruleId: "BP-LAYOUT-003",
+        source: "playbook",
+        slideId: slide.slideId,
+        objectId: shape.objectId,
+        role,
+        observed: { geometry: g, snapDeltaToWholePoints: snapDelta },
+        expected: { wholePointGeometry: true, maxSnapDeltaPt: tol.geometryMicroSnapDeltaPt },
+        evidence: [
+          evidence("PLAYBOOK_EVIDENCE", "Geometry uses fractional points; micro-snap is within tolerance."),
+          evidence("GEOMETRIC_EVIDENCE", "Coordinates are sub-point; normalization would be a small nudge.")
+        ],
+        confidence: roleScore,
+        risk: "manual",
+        severity: "info",
+        coverage: "ANALYZED"
+      }
+    ];
+  }
+
+  return [];
+}
+
+export function collectGroupSafetyFindings(deck: DeckSnapshot, patches: PatchOp[]): Finding[] {
+  const findings: Finding[] = [];
+  const byTarget = new Map<string, DeckSnapshot["slides"][number]["shapes"][number]>();
+  for (const s of deck.slides) {
+    for (const sh of s.shapes) {
+      byTarget.set(`${s.slideId}:${sh.objectId}`, sh);
+    }
+  }
+  const geomOps = new Set<PatchOp["op"]>(["MOVE_GEOMETRY", "RESIZE_GEOMETRY"]);
+  const seen = new Set<string>();
+  for (const patch of patches) {
+    if (!geomOps.has(patch.op)) {
+      continue;
+    }
+    const key = `${patch.target.slideId}:${patch.target.objectId}`;
+    const shape = byTarget.get(key);
+    if (!shape?.grouped) {
+      continue;
+    }
+    const dedupe = `${key}:${patch.op}`;
+    if (seen.has(dedupe)) {
+      continue;
+    }
+    seen.add(dedupe);
+    findings.push({
+      id: `finding-${stableHash([key, "BP-SAFETY-001", patch.op])}`,
+      ruleId: "BP-SAFETY-001",
+      source: "playbook",
+      slideId: patch.target.slideId,
+      objectId: patch.target.objectId,
+      role: shape.inferredRole ?? "UNKNOWN",
+      observed: { grouped: true, patchOp: patch.op },
+      expected: { neverBreakGroups: true },
+      evidence: [
+        evidence("PLAYBOOK_EVIDENCE", "Grouped objects must not receive implicit geometry patches in v1."),
+        evidence("HYGIENE_EVIDENCE", "A geometry patch was suggested for a grouped shape.")
+      ],
+      confidence: shape.inferredRoleScore ?? ROLE_CONFIDENCE_MIN.manual,
+      risk: "manual",
+      severity: "info",
+      coverage: "ANALYZED"
+    });
+  }
+  return findings;
+}
+
+function createMastersHygieneFinding(deck: DeckSnapshot): Finding {
+  const slideId = resolveExemplarSlideId(deck);
+  return {
+    id: `finding-${stableHash([deck.deckId, "BP-MASTERS-001"])}`,
+    ruleId: "BP-MASTERS-001",
+    source: "playbook",
+    slideId,
+    observed: { masterLayoutMetadataAvailable: deck.masterLayoutMetadataAvailable ?? false },
+    expected: { masterLayoutKnown: true },
+    evidence: [
+      evidence("PLAYBOOK_EVIDENCE", "Masters/layout hygiene is report-only in v1."),
+      evidence("HYGIENE_EVIDENCE", "No master or layout metadata was provided by the host.")
+    ],
+    confidence: 1,
+    risk: "manual",
+    severity: "info",
+    coverage: "ANALYZED"
+  };
 }
 
 function objectKey(slideId: string, objectId: string): string {

@@ -217,6 +217,48 @@ const RULE_TRANSLATORS: Record<string, RuleTranslator> = {
     description: "An agenda entry does not map to any slide title in the deck.",
     actionLabel: null,
     riskLabel: "Manual only"
+  }),
+
+  "BP-CONT-003": (f) => ({
+    title: "Section header layout differs from the first section header",
+    description: `This slide's role mix (${str(f.observed.sectionHeaderArchetype)}) does not match the expected archetype (${str(f.expected.sectionHeaderArchetype)}).`,
+    actionLabel: null,
+    riskLabel: "Manual only"
+  }),
+
+  "BP-LAYOUT-001": (f) => ({
+    title: `${roleLabel(f.role)} is outside the exemplar title band`,
+    description: `Distance from the exemplar centroid is ${num(f.observed.distancePt)}pt (tolerance ${num(f.expected.tolerancePt)}pt).`,
+    actionLabel: null,
+    riskLabel: "Manual only"
+  }),
+
+  "BP-LAYOUT-002": (f) => ({
+    title: `${roleLabel(f.role)} is outside the exemplar footer band`,
+    description: `Top is ${num(f.observed.top)}pt vs exemplar median ${num(f.expected.footerTopMedian)}pt (tolerance ${num(f.expected.tolerancePt)}pt).`,
+    actionLabel: null,
+    riskLabel: "Manual only"
+  }),
+
+  "BP-LAYOUT-003": (f) => ({
+    title: "Geometry uses fractional points (micro-snap within tolerance)",
+    description: `Snap delta to whole points is ${num(f.observed.snapDeltaToWholePoints)}pt (max ${num(f.expected.maxSnapDeltaPt)}pt). Normalization is report-only in v1.`,
+    actionLabel: null,
+    riskLabel: "Manual only"
+  }),
+
+  "BP-SAFETY-001": (f) => ({
+    title: "Grouped object and geometry patch",
+    description: `A ${str(f.observed.patchOp)} patch would target a grouped shape. Apply geometry changes manually after ungrouping if appropriate.`,
+    actionLabel: null,
+    riskLabel: "Manual only"
+  }),
+
+  "BP-MASTERS-001": (_f) => ({
+    title: "Master/layout metadata unavailable",
+    description: "The host did not supply master or layout information; layout hygiene is report-only in v1.",
+    actionLabel: null,
+    riskLabel: "Manual only"
   })
 };
 

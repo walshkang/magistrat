@@ -30,9 +30,9 @@ describe("orderedSlideIdsForFindings", () => {
       deckId: "d1",
       generatedAtIso: "",
       slides: [
-        { slideId: "s1", index: 1, title: "A", shapes: [] },
-        { slideId: "s2", index: 2, title: "B", shapes: [] },
-        { slideId: "s3", index: 3, title: "C", shapes: [] }
+        { slideId: "s1", index: 1, title: "A", slideWidth: 720, slideHeight: 405, shapes: [] },
+        { slideId: "s2", index: 2, title: "B", slideWidth: 720, slideHeight: 405, shapes: [] },
+        { slideId: "s3", index: 3, title: "C", slideWidth: 720, slideHeight: 405, shapes: [] }
       ]
     };
     expect(orderedSlideIdsForFindings(grouped, deck)).toEqual(["s1", "s2", "s3", "orphan"]);

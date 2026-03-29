@@ -3,11 +3,14 @@ import type { DeckSnapshot } from "@magistrat/shared-types";
 export const simDeckFixture: DeckSnapshot = {
   deckId: "sim-google-deck",
   generatedAtIso: "2026-02-18T00:00:00.000Z",
+  masterLayoutMetadataAvailable: true,
   slides: [
     {
       slideId: "slide-1",
       index: 1,
       title: "Agenda",
+      slideWidth: 720,
+      slideHeight: 405,
       shapes: [
         {
           objectId: "shape-title",
@@ -105,6 +108,8 @@ export const simDeckFixture: DeckSnapshot = {
       slideId: "slide-2",
       index: 2,
       title: "Overview",
+      slideWidth: 720,
+      slideHeight: 405,
       shapes: [
         {
           objectId: "shape-overview-title",
@@ -227,6 +232,8 @@ export const simDeckFixture: DeckSnapshot = {
       slideId: "slide-3",
       index: 3,
       title: "Market",
+      slideWidth: 720,
+      slideHeight: 405,
       shapes: [
         {
           objectId: "shape-market-title",

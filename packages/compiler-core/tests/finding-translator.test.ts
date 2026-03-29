@@ -314,6 +314,93 @@ describe("translateFinding", () => {
     });
   });
 
+  describe("BP-CONT-003 — section header archetype", () => {
+    it("describes archetype mismatch", () => {
+      const result = translateFinding(
+        baseFinding({
+          ruleId: "BP-CONT-003",
+          source: "continuity",
+          risk: "manual",
+          severity: "info",
+          observed: { sectionHeaderArchetype: "SUBTITLE+TITLE" },
+          expected: { sectionHeaderArchetype: "TITLE" }
+        })
+      );
+      expect(result.title).toContain("Section header");
+      expect(result.description).toContain("SUBTITLE+TITLE");
+      expect(result.description).toContain("TITLE");
+    });
+  });
+
+  describe("BP-LAYOUT-001", () => {
+    it("describes distance from exemplar centroid", () => {
+      const result = translateFinding(
+        baseFinding({
+          ruleId: "BP-LAYOUT-001",
+          observed: { distancePt: 12 },
+          expected: { tolerancePt: 6, geometryCentroid: { x: 100, y: 50 } }
+        })
+      );
+      expect(result.title).toContain("Title");
+      expect(result.description).toContain("12");
+    });
+  });
+
+  describe("BP-LAYOUT-002", () => {
+    it("describes footer offset", () => {
+      const result = translateFinding(
+        baseFinding({
+          ruleId: "BP-LAYOUT-002",
+          role: "FOOTER",
+          observed: { top: 400, deltaFromMedian: 15 },
+          expected: { footerTopMedian: 385, tolerancePt: 6 }
+        })
+      );
+      expect(result.title).toContain("Footer");
+    });
+  });
+
+  describe("BP-LAYOUT-003", () => {
+    it("describes micro-snap delta", () => {
+      const result = translateFinding(
+        baseFinding({
+          ruleId: "BP-LAYOUT-003",
+          risk: "manual",
+          severity: "info",
+          observed: { snapDeltaToWholePoints: 0.35 },
+          expected: { maxSnapDeltaPt: 0.5 }
+        })
+      );
+      expect(result.title).toContain("fractional");
+      expect(result.description).toContain("0.3");
+    });
+  });
+
+  describe("BP-SAFETY-001", () => {
+    it("mentions grouped shape and patch op", () => {
+      const result = translateFinding(
+        baseFinding({
+          ruleId: "BP-SAFETY-001",
+          observed: { grouped: true, patchOp: "MOVE_GEOMETRY" }
+        })
+      );
+      expect(result.title).toContain("Grouped");
+      expect(result.description).toContain("MOVE_GEOMETRY");
+    });
+  });
+
+  describe("BP-MASTERS-001", () => {
+    it("describes missing master metadata", () => {
+      const result = translateFinding(
+        baseFinding({
+          ruleId: "BP-MASTERS-001",
+          observed: { masterLayoutMetadataAvailable: false }
+        })
+      );
+      expect(result.title).toContain("Master");
+    });
+  });
+
   describe("NOT_ANALYZED findings — buckets", () => {
     it("cant_inspect: title and Skipped risk label", () => {
       const result = translateFinding(
