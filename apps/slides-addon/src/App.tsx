@@ -8,6 +8,7 @@ import { ExceptionsPanel } from "./components/ExceptionsPanel.js";
 import { Minimap } from "./components/Minimap.js";
 import { DevModeToggle } from "./components/DevModeToggle.js";
 import { FindingsPanel } from "./components/FindingsPanel.js";
+import { RuleConfirmationPanel } from "./components/RuleConfirmationPanel.js";
 import { useDevMode } from "./context/DevModeContext.js";
 import { useAnalysis } from "./hooks/useAnalysis.js";
 import { usePatchLog } from "./hooks/usePatchLog.js";
@@ -38,6 +39,10 @@ export function App() {
     exemplarMode,
     setExemplarMode,
     runCleanup,
+    pendingRuleConfirmation,
+    setPendingRuleConfirmation,
+    confirmRulesAndFinalize,
+    openRuleConfirmationEditor,
     applySafe,
     applyForFinding,
     message,
@@ -219,7 +224,7 @@ export function App() {
       : `Exemplar: ${exemplarSlideLabel} · ${exemplarModeShort}`;
 
   const showPreScanEmpty =
-    !analysisState && Boolean(deck && documentState && readDeckCapability.supported);
+    !analysisState && !pendingRuleConfirmation && Boolean(deck && documentState && readDeckCapability.supported);
 
   if (loading) {
     return (
@@ -322,10 +327,20 @@ export function App() {
               type="button"
               className="btn-secondary"
               onClick={() => void runCleanup()}
-              disabled={!deck}
+              disabled={!deck || pendingRuleConfirmation !== null}
             >
               {analysisState ? "Rescan" : "Scan deck"}
             </button>
+            {analysisState ? (
+              <button
+                type="button"
+                className="btn-ghost btn-sm"
+                onClick={() => openRuleConfirmationEditor()}
+                disabled={pendingRuleConfirmation !== null}
+              >
+                Edit rules
+              </button>
+            ) : null}
           </div>
           {analysisState && !devMode ? (
             <p className="exemplar-health-summary">Exemplar health: {analysisState.exemplarHealthScore}/100</p>
@@ -333,13 +348,29 @@ export function App() {
         </div>
       </details>
 
+      {pendingRuleConfirmation ? (
+        <RuleConfirmationPanel
+          candidates={pendingRuleConfirmation.candidates}
+          onCandidatesChange={(next) =>
+            setPendingRuleConfirmation((prev) => (prev ? { ...prev, candidates: next } : prev))
+          }
+          onConfirm={() => void confirmRulesAndFinalize(pendingRuleConfirmation.candidates, "save")}
+          onUseDefaults={() => void confirmRulesAndFinalize(pendingRuleConfirmation.candidates, "defaults")}
+        />
+      ) : null}
+
       {showPreScanEmpty ? (
         <section className="empty-state" aria-label="Scan prompt">
           <div className="empty-state__copy">
             <p>Scan your deck to check</p>
             <p>alignment with the exemplar</p>
           </div>
-          <button type="button" className="btn-primary" onClick={() => void runCleanup()} disabled={!canRunScan}>
+          <button
+            type="button"
+            className="btn-primary"
+            onClick={() => void runCleanup()}
+            disabled={!canRunScan || pendingRuleConfirmation !== null}
+          >
             Scan deck
           </button>
         </section>

@@ -596,6 +596,115 @@ li {
   color: var(--text-secondary);
 }
 
+/* Rule confirmation panel */
+.rule-confirmation-panel__subtitle {
+  margin: -6px 0 10px;
+  font-size: 12px;
+}
+
+.rule-confirmation-panel__roles {
+  display: grid;
+  gap: 12px;
+}
+
+.rule-confirmation-role {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface-card-hover);
+  padding: 10px;
+}
+
+.rule-confirmation-role__title {
+  margin: 0 0 8px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.rule-confirmation-role__list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.rule-confirmation-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.rule-confirmation-row__label {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--text-primary);
+}
+
+.rule-confirmation-panel__actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.rule-confirmation-row__toggle {
+  display: inline-flex;
+  align-items: center;
+}
+
+/* Toggle switch */
+.switch-input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+}
+
+.switch-ui {
+  width: 36px;
+  height: 20px;
+  border-radius: 9999px;
+  border: 1px solid var(--border-default);
+  background: var(--surface-inset);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.02);
+  position: relative;
+  display: inline-block;
+}
+
+.switch-ui::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 9999px;
+  background: var(--surface-card);
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.15s ease;
+}
+
+.switch-input:checked + .switch-ui {
+  background: color-mix(in srgb, var(--accent) 25%, var(--surface-inset));
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border-default));
+}
+
+.switch-input:checked + .switch-ui::after {
+  transform: translateX(16px);
+}
+
+.switch-input:focus-visible + .switch-ui {
+  outline: 2px solid color-mix(in srgb, var(--status-focus) 55%, transparent);
+  outline-offset: 2px;
+}
+
+.switch-input:disabled + .switch-ui {
+  opacity: 0.55;
+}
+
 /* Findings panel — grouped by slide */
 .findings-panel {
   display: grid;

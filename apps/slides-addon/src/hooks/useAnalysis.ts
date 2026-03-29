@@ -2,6 +2,7 @@ import {
   buildDeckIr,
   buildStyleMap,
   computeAlignmentScore,
+  inferCandidateRules,
   inferRoles,
   planPatches,
   runChecks,
@@ -16,12 +17,16 @@ import {
   saveDocumentState
 } from "@magistrat/google-adapter";
 import type {
+  CandidateRule,
   CoverageSnapshot,
   DeckSnapshot,
   DocumentStateV1,
   ExemplarSelection,
   Finding,
   PatchOp,
+  RoleStyleTokens,
+  RoleV1,
+  RuleProfile,
   StyleMap
 } from "@magistrat/shared-types";
 import { useCallback, useEffect, useState, type Dispatch, type SetStateAction } from "react";
@@ -42,6 +47,14 @@ export interface AnalysisState {
 interface AnalyzeResult {
   analysis: AnalysisState;
   exemplarSlideId: string;
+}
+
+interface StyleMapPhaseResult {
+  deck: DeckSnapshot;
+  exemplarSlideId: string;
+  exemplarMode: ExemplarSelection["mode"];
+  styleMap: StyleMap;
+  exemplarHealthScore: number;
 }
 
 export interface RuntimeCapability {
@@ -70,6 +83,14 @@ export function useAnalysis({
   const [exemplarMode, setExemplarMode] = useState<ExemplarSelection["mode"]>("token_normalized");
   const [analysisState, setAnalysisState] = useState<AnalysisState | null>(null);
   const [message, setMessage] = useState<string>("");
+  const [pendingRuleConfirmation, setPendingRuleConfirmation] = useState<{
+    deck: DeckSnapshot;
+    exemplarSlideId: string;
+    exemplarMode: ExemplarSelection["mode"];
+    styleMap: StyleMap;
+    candidates: CandidateRule[];
+    exemplarHealthScore: number;
+  } | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -129,32 +150,160 @@ export function useAnalysis({
         setMessage("Deck snapshot is not available in current runtime mode.");
         return;
       }
+      if (documentState.ruleProfile) {
+        const stylePhase = runStyleMapPhase(latestDeck, selectedExemplarSlideId, exemplarMode);
+        const filteredStyleMap = filterStyleMapByCandidates(
+          stylePhase.styleMap,
+          documentState.ruleProfile.rules
+        );
+        const result = finishAnalysisFromStyleMap({ ...stylePhase, styleMap: filteredStyleMap });
+        const nextState: DocumentStateV1 = {
+          ...documentState,
+          exemplar: {
+            slideId: result.exemplarSlideId,
+            mode: exemplarMode,
+            normalizationAppliedToSlide: false,
+            selectedAtIso: new Date().toISOString()
+          },
+          styleMap: result.analysis.styleMap,
+          findings: result.analysis.findings,
+          coverage: result.analysis.coverage,
+          lastUpdatedIso: new Date().toISOString()
+        };
 
-      const result = analyzeDeckSnapshot(latestDeck, selectedExemplarSlideId, exemplarMode);
-      const nextState: DocumentStateV1 = {
-        ...documentState,
-        exemplar: {
-          slideId: result.exemplarSlideId,
-          mode: exemplarMode,
-          normalizationAppliedToSlide: false,
-          selectedAtIso: new Date().toISOString()
-        },
-        styleMap: result.analysis.styleMap,
-        findings: result.analysis.findings,
-        coverage: result.analysis.coverage,
-        lastUpdatedIso: new Date().toISOString()
-      };
+        await saveDocumentState(nextState);
+        setDeck(latestDeck);
+        setDocumentState(nextState);
+        setAnalysisState(result.analysis);
+        setSelectedExemplarSlideId(result.exemplarSlideId);
+        setMessage(`Scan complete: ${result.analysis.findings.length} findings.`);
+        return;
+      }
 
-      await saveDocumentState(nextState);
+      const stylePhase = runStyleMapPhase(latestDeck, selectedExemplarSlideId, exemplarMode);
+      const inferred = inferCandidateRules(stylePhase.styleMap);
+      setPendingRuleConfirmation({
+        deck: latestDeck,
+        exemplarSlideId: stylePhase.exemplarSlideId,
+        exemplarMode,
+        styleMap: stylePhase.styleMap,
+        candidates: inferred.candidates.map((c) => ({ ...c })),
+        exemplarHealthScore: stylePhase.exemplarHealthScore
+      });
       setDeck(latestDeck);
-      setDocumentState(nextState);
-      setAnalysisState(result.analysis);
-      setSelectedExemplarSlideId(result.exemplarSlideId);
-      setMessage(`Scan complete: ${result.analysis.findings.length} findings.`);
+      setSelectedExemplarSlideId(stylePhase.exemplarSlideId);
+      setMessage("Review inferred rules before running full scan.");
     } catch (error: unknown) {
       setMessage(error instanceof Error ? error.message : "Run clean up failed.");
     }
-  }, [deck, documentState, exemplarMode, readDeckCapability.supported, selectedExemplarSlideId, setDocumentState]);
+  }, [
+    deck,
+    documentState,
+    exemplarMode,
+    readDeckCapability.supported,
+    selectedExemplarSlideId,
+    setDocumentState
+  ]);
+
+  const confirmRulesAndFinalize = useCallback(
+    async (candidates: CandidateRule[], mode: "save" | "defaults") => {
+      if (!documentState || !pendingRuleConfirmation) {
+        return;
+      }
+
+      const { deck: phaseDeck, exemplarSlideId, exemplarMode: phaseMode, styleMap } = pendingRuleConfirmation;
+      try {
+        const nowIso = new Date().toISOString();
+        const profileName =
+          phaseDeck.slides.find((s) => s.slideId === exemplarSlideId)?.title || "Inferred rules";
+        const nextRuleProfile: RuleProfile | undefined =
+          mode === "save"
+            ? {
+                id: globalThis.crypto?.randomUUID
+                  ? globalThis.crypto.randomUUID()
+                  : `rule-profile-${Date.now()}`,
+                name: profileName,
+                updatedAtIso: nowIso,
+                sourceSlideIds: [exemplarSlideId],
+                rules: candidates
+              }
+            : undefined;
+
+        const filteredStyleMap =
+          mode === "save" ? filterStyleMapByCandidates(styleMap, candidates) : styleMap;
+        const filteredResult = finishAnalysisFromStyleMap({
+          ...pendingRuleConfirmation,
+          styleMap: filteredStyleMap
+        });
+
+        const nextState: DocumentStateV1 = {
+          ...documentState,
+          exemplar: {
+            slideId: filteredResult.exemplarSlideId,
+            mode: phaseMode,
+            normalizationAppliedToSlide: false,
+            selectedAtIso: nowIso
+          },
+          styleMap: filteredResult.analysis.styleMap,
+          findings: filteredResult.analysis.findings,
+          coverage: filteredResult.analysis.coverage,
+          lastUpdatedIso: nowIso,
+          ruleProfile: nextRuleProfile
+        };
+
+        await saveDocumentState(nextState);
+        setDeck(phaseDeck);
+        setDocumentState(nextState);
+        setAnalysisState(filteredResult.analysis);
+        setSelectedExemplarSlideId(filteredResult.exemplarSlideId);
+        setPendingRuleConfirmation(null);
+        setMessage(`Scan complete: ${filteredResult.analysis.findings.length} findings.`);
+      } catch (error: unknown) {
+        setMessage(error instanceof Error ? error.message : "Rule confirmation failed.");
+      }
+    },
+    [documentState, pendingRuleConfirmation, setDocumentState]
+  );
+
+  const openRuleConfirmationEditor = useCallback(() => {
+    if (!documentState || !analysisState || !deck) {
+      return;
+    }
+
+    const fallbackSlide = deck.slides[0];
+    if (!fallbackSlide) {
+      return;
+    }
+
+    const styleMap = analysisState.styleMap;
+    const inferred = inferCandidateRules(styleMap);
+    const baseCandidates = inferred.candidates.map((c) => ({ ...c }));
+    const profile = documentState.ruleProfile;
+
+    const mergedCandidates =
+      profile && profile.rules.length > 0
+        ? baseCandidates.map((candidate) => {
+            const match = profile.rules.find((r) => r.id === candidate.id);
+            if (!match) return candidate;
+            return { ...candidate, enabled: match.enabled };
+          })
+        : baseCandidates;
+
+    const exemplarSlideId =
+      documentState.exemplar?.slideId ?? fallbackSlide.slideId ?? selectedExemplarSlideId;
+    const exemplarHealth = scoreExemplarHealth(
+      deck.slides.find((s) => s.slideId === exemplarSlideId) ?? fallbackSlide
+    );
+
+    setPendingRuleConfirmation({
+      deck,
+      exemplarSlideId,
+      exemplarMode,
+      styleMap,
+      candidates: mergedCandidates,
+      exemplarHealthScore: exemplarHealth.score
+    });
+  }, [analysisState, deck, documentState, exemplarMode, selectedExemplarSlideId]);
 
   const applyPatchesWithRefresh = useCallback(
     async (patches: PatchOp[], errorLabel: string) => {
@@ -174,7 +323,8 @@ export function useAnalysis({
       try {
         const applied = await applyPatchOps(patches);
         const refreshedDeck = await readDeckSnapshot();
-        const refreshed = analyzeDeckSnapshot(refreshedDeck, selectedExemplarSlideId, exemplarMode);
+        const stylePhase = runStyleMapPhase(refreshedDeck, selectedExemplarSlideId, exemplarMode);
+        const refreshed = finishAnalysisFromStyleMap(stylePhase);
 
         const patchLog = [...documentState.patchLog, ...applied];
         const reconciledPatchLog = reconcilePatchLogByRecordIdentity(patchLog, refreshedDeck);
@@ -206,7 +356,8 @@ export function useAnalysis({
         if (partialApplied.length > 0) {
           try {
             const refreshedDeck = await readDeckSnapshot();
-            const refreshed = analyzeDeckSnapshot(refreshedDeck, selectedExemplarSlideId, exemplarMode);
+            const stylePhase = runStyleMapPhase(refreshedDeck, selectedExemplarSlideId, exemplarMode);
+            const refreshed = finishAnalysisFromStyleMap(stylePhase);
 
             const patchLog = [...documentState.patchLog, ...partialApplied];
             const reconciledPatchLog = reconcilePatchLogByRecordIdentity(patchLog, refreshedDeck);
@@ -310,6 +461,10 @@ export function useAnalysis({
     exemplarMode,
     setExemplarMode,
     runCleanup,
+    pendingRuleConfirmation,
+    setPendingRuleConfirmation,
+    confirmRulesAndFinalize,
+    openRuleConfirmationEditor,
     applySafe,
     applyForFinding,
     message,
@@ -317,11 +472,11 @@ export function useAnalysis({
   };
 }
 
-function analyzeDeckSnapshot(
+function runStyleMapPhase(
   deck: DeckSnapshot,
   selectedExemplarSlideId: string,
   exemplarMode: ExemplarSelection["mode"]
-): AnalyzeResult {
+): StyleMapPhaseResult {
   const exemplarSlide =
     deck.slides.find((slide) => slide.slideId === selectedExemplarSlideId) ?? deck.slides[0] ?? null;
 
@@ -329,10 +484,30 @@ function analyzeDeckSnapshot(
     throw new Error("No slide available for exemplar selection.");
   }
 
+  const styleMapResult = buildStyleMap(exemplarSlide, exemplarMode);
+  const exemplarHealth = scoreExemplarHealth(exemplarSlide);
+
+  return {
+    exemplarSlideId: exemplarSlide.slideId,
+    exemplarMode,
+    styleMap: styleMapResult.styleMap,
+    exemplarHealthScore: exemplarHealth.score,
+    deck
+  };
+}
+
+function finishAnalysisFromStyleMap(phase: StyleMapPhaseResult): AnalyzeResult {
+  const { deck, exemplarSlideId, styleMap } = phase;
+  const exemplarSlide =
+    deck.slides.find((slide) => slide.slideId === exemplarSlideId) ?? deck.slides[0] ?? null;
+
+  if (!exemplarSlide) {
+    throw new Error("No slide available for exemplar selection.");
+  }
+
   const ir = buildDeckIr(deck);
   const inferred = inferRoles(ir);
-  const styleMapResult = buildStyleMap(exemplarSlide, exemplarMode);
-  const checks = runChecks(inferred.deck, styleMapResult.styleMap);
+  const checks = runChecks(inferred.deck, styleMap);
   const alignmentScore = computeAlignmentScore(checks.findings, checks.coverage);
   const patches = planPatches(checks.findings, checks.suggestedPatches);
   const exemplarHealth = scoreExemplarHealth(exemplarSlide);
@@ -346,11 +521,73 @@ function analyzeDeckSnapshot(
       manualPatches: patches.manual,
       coverage: checks.coverage,
       exemplarHealthScore: exemplarHealth.score,
-      styleMap: styleMapResult.styleMap,
+      styleMap,
       stale: false,
       alignmentScore
     }
   };
+}
+
+/**
+ * Remove style map entries for properties the user disabled in the rule confirmation panel.
+ * This causes `runChecks` to skip those checks (no expected value = no finding).
+ */
+function filterStyleMapByCandidates(
+  styleMap: StyleMap,
+  candidates: CandidateRule[]
+): StyleMap {
+  const disabledByRole = new Map<string, Set<string>>();
+  for (const c of candidates) {
+    if (c.enabled) continue;
+    let set = disabledByRole.get(c.role);
+    if (!set) {
+      set = new Set();
+      disabledByRole.set(c.role, set);
+    }
+    set.add(c.property);
+  }
+
+  if (disabledByRole.size === 0) return styleMap;
+
+  const filtered: StyleMap = {};
+  for (const [role, tokens] of Object.entries(styleMap) as [RoleV1, RoleStyleTokens][]) {
+    const disabled = disabledByRole.get(role);
+    if (!disabled) {
+      filtered[role] = tokens;
+      continue;
+    }
+
+    const copy = { ...tokens };
+    // Null out disabled properties so runChecks skips the comparison
+    if (disabled.has("fontFamily")) copy.fontFamily = "";
+    if (disabled.has("fontColor")) copy.fontColor = "";
+    if (disabled.has("lineSpacing")) copy.lineSpacing = undefined;
+    if (disabled.has("bulletIndent")) {
+      copy.bulletIndent = undefined;
+      copy.bulletHanging = undefined;
+    }
+    if (disabled.has("bulletGlyph")) copy.bulletGlyph = undefined;
+    if (disabled.has("fillColor")) copy.fillColor = undefined;
+    if (disabled.has("geometryBand")) {
+      copy.hasGeometryCluster = false;
+      copy.geometryCentroid = undefined;
+    }
+    // fontSizePt and bold/italic: set to match-anything sentinels
+    // For these, we can't null them (they're required). Instead we rely on
+    // the fact that checks compare observed vs expected — if we set expected
+    // to match observed, no finding is emitted. But we don't have observed here.
+    // Best approach: remove the entire role entry if ALL properties are disabled.
+    const allProps = ["fontFamily", "fontSizePt", "fontColor", "bold", "italic", "lineSpacing", "bulletIndent", "bulletGlyph", "fillColor", "geometryBand"];
+    const allDisabled = allProps.every((p) => disabled.has(p));
+    if (allDisabled) {
+      // Skip the role entirely — no findings for this role
+      continue;
+    }
+
+    filtered[role] = copy;
+  }
+
+  return filtered;
 }
 
 function hydrateAnalysisState(state: DocumentStateV1): AnalysisState | null {

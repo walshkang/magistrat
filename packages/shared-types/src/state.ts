@@ -1,6 +1,7 @@
 import type { Finding } from "./findings.js";
 import type { PatchRecord } from "./patches.js";
 import type { RoleV1 } from "./roles.js";
+import type { RuleProfile } from "./rule-profile.js";
 
 export interface RoleStyleTokens {
   fontFamily: string;
@@ -79,4 +80,6 @@ export interface DocumentStateV1 {
   ratify?: RatifyStamp;
   coverage?: CoverageSnapshot;
   ignoredFindings: IgnoredFinding[];
+  /** User-confirmed rule profile from exemplar inference (Phase 7A). */
+  ruleProfile?: RuleProfile;
 }
