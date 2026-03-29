@@ -151,6 +151,45 @@ export const simDeckFixture: DeckSnapshot = {
           }
         },
         {
+          objectId: "shape-overview-body",
+          name: "Body text",
+          shapeType: "TEXT",
+          visible: true,
+          grouped: false,
+          zIndex: 4,
+          textRuns: [
+            {
+              text: "This quarter we launched three new product lines across APAC.",
+              fontFamily: "Calibri",
+              fontSizePt: 20,
+              bold: false,
+              italic: false,
+              fontColor: "#445566",
+              fontAlpha: 1
+            }
+          ],
+          paragraphs: [
+            {
+              level: 0,
+              text: "This quarter we launched three new product lines across APAC.",
+              lineSpacing: 1.2
+            }
+          ],
+          geometry: {
+            left: 64,
+            top: 160,
+            width: 760,
+            height: 160,
+            rotation: 0
+          },
+          supportedForAnalysis: true,
+          autofitEnabled: false,
+          inspectability: {
+            typography: true,
+            bullets: false
+          }
+        },
+        {
           objectId: "shape-semi-transparent",
           name: "Faded note",
           shapeType: "TEXT",
@@ -245,7 +284,7 @@ export const simDeckFixture: DeckSnapshot = {
           textRuns: [
             {
               text: "Market",
-              fontFamily: "Aptos Display",
+              fontFamily: "Arial",
               fontSizePt: 30,
               bold: true,
               italic: false,
