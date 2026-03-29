@@ -5,7 +5,13 @@ import {
   loadDocumentState as loadDocumentStateInternal,
   saveDocumentState as saveDocumentStateInternal
 } from "./document-state.js";
-import { getAdapterProvider, getHostCapabilities as detectHostCapabilities, resetAdapterProviderForTests } from "./provider-factory.js";
+import {
+  getAdapterProvider,
+  getHostCapabilities as detectHostCapabilities,
+  resetAdapterProviderForTests,
+  enableSafeMode as enableSafeModeInternal,
+  disableSafeMode as disableSafeModeInternal
+} from "./provider-factory.js";
 import { stableTargetFingerprint } from "./target-fingerprint.js";
 
 export async function readDeckSnapshot(): Promise<DeckSnapshot> {
@@ -49,6 +55,14 @@ export function getHostCapabilities(): HostCapabilities {
 
 export function getRuntimeStatus(): AdapterRuntimeStatus {
   return getAdapterProvider().getRuntimeStatus();
+}
+
+export function enableOfficeSafeMode(): void {
+  enableSafeModeInternal();
+}
+
+export function disableOfficeSafeMode(): void {
+  disableSafeModeInternal();
 }
 
 export {

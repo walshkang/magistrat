@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { DocumentStateV1 } from "@magistrat/shared-types";
 import {
   applyPatchOps,
+  enableOfficeSafeMode,
   getRuntimeStatus,
   loadDocumentState,
   readDeckSnapshot,
@@ -133,6 +134,25 @@ describe("office adapter public api", () => {
 
     const snapshot = await readDeckSnapshot();
     expect(snapshot.slides).toEqual([]);
+  });
+
+  it("uses OFFICE_SAFE when livePatchApply policy is enabled on desktop", () => {
+    setOfficeContext({
+      host: "PowerPoint",
+      platform: "PC",
+      requirements: {
+        isSetSupported: () => true
+      }
+    });
+    setPowerPointContext({
+      run: async (callback) => callback(createEmptyPowerPointContext())
+    });
+
+    enableOfficeSafeMode();
+    const status = getRuntimeStatus();
+    expect(status.mode).toBe("OFFICE_SAFE");
+    expect(status.capabilities.readDeckSnapshot.supported).toBe(true);
+    expect(status.capabilities.applyPatchOps.supported).toBe(true);
   });
 
   it("applies safe patch ops against mutable SIM deck and records signatures", async () => {

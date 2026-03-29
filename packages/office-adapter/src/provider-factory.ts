@@ -2,10 +2,22 @@ import type { AdapterCapability, AdapterProvider, HostCapabilities } from "./ada
 import { buildCapabilityRegistry } from "./capability-registry.js";
 import { getDocumentIdentifier } from "./document-state.js";
 import { createOfficeReadonlyProvider } from "./providers/office-readonly-provider.js";
+import { createOfficeSafeProvider } from "./providers/office-safe-provider.js";
 import { createOfficeShadowProvider } from "./providers/office-shadow-provider.js";
 import { createSimProvider, resetSimDeckForTests } from "./providers/sim-provider.js";
 
 let cachedProvider: AdapterProvider | undefined;
+let safeModeEnabled = false;
+
+export function enableSafeMode(): void {
+  safeModeEnabled = true;
+  cachedProvider = undefined; // force re-creation
+}
+
+export function disableSafeMode(): void {
+  safeModeEnabled = false;
+  cachedProvider = undefined;
+}
 
 export function getHostCapabilities(): HostCapabilities {
   const officeGlobal = (
@@ -41,7 +53,9 @@ export function getAdapterProvider(): AdapterProvider {
   }
 
   const hostCapabilities = getHostCapabilities();
-  const capabilityRegistry = buildCapabilityRegistry(hostCapabilities);
+  const capabilityRegistry = buildCapabilityRegistry(hostCapabilities, {
+    enableLivePatchApply: safeModeEnabled
+  });
 
   if (!hostCapabilities.officeAvailable) {
     cachedProvider = createSimProvider({
@@ -54,11 +68,19 @@ export function getAdapterProvider(): AdapterProvider {
 
   const readDeckSnapshotCapability = buildReadDeckSnapshotCapability(capabilityRegistry);
   if (hostCapabilities.desktopSupported && readDeckSnapshotCapability.supported) {
-    cachedProvider = createOfficeReadonlyProvider({
-      hostCapabilities,
-      capabilityRegistry,
-      getDocumentIdentifier
-    });
+    if (capabilityRegistry.policies.livePatchApply.supported) {
+      cachedProvider = createOfficeSafeProvider({
+        hostCapabilities,
+        capabilityRegistry,
+        getDocumentIdentifier
+      });
+    } else {
+      cachedProvider = createOfficeReadonlyProvider({
+        hostCapabilities,
+        capabilityRegistry,
+        getDocumentIdentifier
+      });
+    }
     return cachedProvider;
   }
 
@@ -72,6 +94,7 @@ export function getAdapterProvider(): AdapterProvider {
 
 export function resetAdapterProviderForTests(): void {
   cachedProvider = undefined;
+  safeModeEnabled = false;
   resetSimDeckForTests();
 }
 

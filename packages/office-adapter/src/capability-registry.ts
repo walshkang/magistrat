@@ -16,18 +16,27 @@ interface OfficeGlobalLike {
   context?: OfficeContextLike;
 }
 
-export function buildCapabilityRegistry(hostCapabilities: HostCapabilities): AdapterCapabilityRegistry {
+export interface CapabilityRegistryOptions {
+  enableLivePatchApply?: boolean;
+}
+
+export function buildCapabilityRegistry(
+  hostCapabilities: HostCapabilities,
+  options?: CapabilityRegistryOptions
+): AdapterCapabilityRegistry {
   return {
     requirementSets: {
       powerPointApi_1_4: resolveRequirementSet(hostCapabilities, "1.4"),
       powerPointApi_1_6: resolveRequirementSet(hostCapabilities, "1.6")
     },
     policies: {
-      livePatchApply: {
-        supported: false,
-        reasonCode: "POLICY_DISABLED",
-        reason: "Live patch apply is disabled in the Office parity track."
-      },
+      livePatchApply: options?.enableLivePatchApply
+        ? { supported: true }
+        : {
+            supported: false,
+            reasonCode: "POLICY_DISABLED",
+            reason: "Live patch apply is disabled in the Office parity track."
+          },
       bulletMetrics: {
         supported: false,
         reasonCode: "API_LIMITATION",

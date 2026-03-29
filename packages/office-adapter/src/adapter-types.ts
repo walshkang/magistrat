@@ -7,7 +7,7 @@ export interface HostCapabilities {
   desktopSupported: boolean;
 }
 
-export type AdapterMode = "SIM" | "OFFICE_SHADOW" | "OFFICE_READONLY";
+export type AdapterMode = "SIM" | "OFFICE_SHADOW" | "OFFICE_READONLY" | "OFFICE_SAFE";
 
 export type AdapterCapabilityReasonCode =
   | "OFFICE_UNAVAILABLE"
