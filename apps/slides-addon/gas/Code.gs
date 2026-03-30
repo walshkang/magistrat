@@ -68,6 +68,7 @@ function readPresentation() {
     var slide = slides[i];
     var pageElements = slide.getPageElements();
     var elements = [];
+    var slideTitle = '';
 
     for (var j = 0; j < pageElements.length; j++) {
       var el = pageElements[j];
@@ -89,6 +90,20 @@ function readPresentation() {
         if (textRange) {
           element.text = extractTextInfo(textRange);
         }
+        // Extract slide title from TITLE or CENTERED_TITLE placeholder
+        if (!slideTitle) {
+          try {
+            var pType = shape.getPlaceholderType();
+            if (
+              pType === SlidesApp.PlaceholderType.TITLE ||
+              pType === SlidesApp.PlaceholderType.CENTERED_TITLE
+            ) {
+              slideTitle = shape.getText().asString().trim().split('\n')[0] || '';
+            }
+          } catch (e) {
+            // Not a placeholder shape — skip
+          }
+        }
         try {
           var fill = shape.getFill();
           if (fill && fill.getSolidFill()) {
@@ -106,7 +121,8 @@ function readPresentation() {
 
     result.slides.push({
       slideId: slide.getObjectId(),
-      index: i,
+      index: i + 1,
+      title: slideTitle,
       pageElements: elements,
     });
   }
