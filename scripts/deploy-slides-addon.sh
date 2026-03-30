@@ -98,7 +98,12 @@ fi
 cd "$STAGE_DIR"
 clasp push
 
+SCRIPT_ID=$(node -e "try{const c=require('$REPO_ROOT/.clasp.json');console.log(c.scriptId)}catch(e){}" 2>/dev/null || true)
+
 echo ""
 echo "── Deploy complete ──"
-echo "  Open the script editor: clasp open"
+if [[ -n "$SCRIPT_ID" ]]; then
+  echo "  Script editor: https://script.google.com/macros/d/$SCRIPT_ID/edit"
+fi
 echo "  Test in a presentation: Extensions → Magistrat → Open sidebar"
+echo "  (Reload the Slides tab first — Google caches aggressively)"
