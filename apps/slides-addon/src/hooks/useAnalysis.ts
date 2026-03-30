@@ -4,6 +4,7 @@ import {
   computeAlignmentScore,
   inferCandidateRules,
   inferRoles,
+  mergeStyleMaps,
   planPatches,
   runChecks,
   scoreExemplarHealth,
@@ -84,6 +85,7 @@ export function useAnalysis({
   const [loading, setLoading] = useState(true);
   const [deck, setDeck] = useState<DeckSnapshot | null>(null);
   const [selectedExemplarSlideId, setSelectedExemplarSlideId] = useState<string>("");
+  const [additionalExemplarSlideIds, setAdditionalExemplarSlideIds] = useState<string[]>([]);
   const [exemplarMode, setExemplarMode] = useState<ExemplarSelection["mode"]>("token_normalized");
   const [analysisState, setAnalysisState] = useState<AnalysisState | null>(null);
   const [message, setMessage] = useState<string>("");
@@ -114,6 +116,7 @@ export function useAnalysis({
 
       const firstSlideId = state.exemplar?.slideId ?? snapshot?.slides[0]?.slideId ?? "";
       setSelectedExemplarSlideId(firstSlideId);
+      setAdditionalExemplarSlideIds(state.exemplar?.additionalSlideIds ?? []);
       setExemplarMode(state.exemplar?.mode ?? "token_normalized");
 
       const staleState = hydrateAnalysisState(state);
@@ -155,7 +158,12 @@ export function useAnalysis({
         return;
       }
       if (documentState.ruleProfile) {
-        const stylePhase = runStyleMapPhase(latestDeck, selectedExemplarSlideId, exemplarMode);
+        const stylePhase = runStyleMapPhase(
+          latestDeck,
+          selectedExemplarSlideId,
+          exemplarMode,
+          additionalExemplarSlideIds
+        );
         const filteredStyleMap = filterStyleMapByCandidates(
           stylePhase.styleMap,
           documentState.ruleProfile.rules
@@ -167,7 +175,8 @@ export function useAnalysis({
             slideId: result.exemplarSlideId,
             mode: exemplarMode,
             normalizationAppliedToSlide: false,
-            selectedAtIso: new Date().toISOString()
+            selectedAtIso: new Date().toISOString(),
+            ...(additionalExemplarSlideIds.length ? { additionalSlideIds: additionalExemplarSlideIds } : {})
           },
           styleMap: result.analysis.styleMap,
           findings: result.analysis.findings,
@@ -184,7 +193,12 @@ export function useAnalysis({
         return;
       }
 
-      const stylePhase = runStyleMapPhase(latestDeck, selectedExemplarSlideId, exemplarMode);
+      const stylePhase = runStyleMapPhase(
+        latestDeck,
+        selectedExemplarSlideId,
+        exemplarMode,
+        additionalExemplarSlideIds
+      );
       const inferred = inferCandidateRules(stylePhase.styleMap);
       setPendingRuleConfirmation({
         deck: latestDeck,
@@ -201,6 +215,7 @@ export function useAnalysis({
       setMessage(error instanceof Error ? error.message : "Run clean up failed.");
     }
   }, [
+    additionalExemplarSlideIds,
     deck,
     documentState,
     exemplarMode,
@@ -246,7 +261,8 @@ export function useAnalysis({
             slideId: filteredResult.exemplarSlideId,
             mode: phaseMode,
             normalizationAppliedToSlide: false,
-            selectedAtIso: nowIso
+            selectedAtIso: nowIso,
+            ...(additionalExemplarSlideIds.length ? { additionalSlideIds: additionalExemplarSlideIds } : {})
           },
           styleMap: filteredResult.analysis.styleMap,
           findings: filteredResult.analysis.findings,
@@ -266,7 +282,7 @@ export function useAnalysis({
         setMessage(error instanceof Error ? error.message : "Rule confirmation failed.");
       }
     },
-    [documentState, pendingRuleConfirmation, setDocumentState]
+    [additionalExemplarSlideIds, documentState, pendingRuleConfirmation, setDocumentState]
   );
 
   const openRuleConfirmationEditor = useCallback(() => {
@@ -327,7 +343,12 @@ export function useAnalysis({
       try {
         const applied = await applyPatchOps(patches);
         const refreshedDeck = await readDeckSnapshot();
-        const stylePhase = runStyleMapPhase(refreshedDeck, selectedExemplarSlideId, exemplarMode);
+        const stylePhase = runStyleMapPhase(
+          refreshedDeck,
+          selectedExemplarSlideId,
+          exemplarMode,
+          additionalExemplarSlideIds
+        );
         const refreshed = finishAnalysisFromStyleMap(stylePhase);
 
         const patchLog = [...documentState.patchLog, ...applied];
@@ -340,7 +361,8 @@ export function useAnalysis({
             slideId: refreshed.exemplarSlideId,
             mode: exemplarMode,
             normalizationAppliedToSlide: false,
-            selectedAtIso: documentState.exemplar?.selectedAtIso ?? new Date().toISOString()
+            selectedAtIso: documentState.exemplar?.selectedAtIso ?? new Date().toISOString(),
+            ...(additionalExemplarSlideIds.length ? { additionalSlideIds: additionalExemplarSlideIds } : {})
           },
           styleMap: refreshed.analysis.styleMap,
           findings: refreshed.analysis.findings,
@@ -360,7 +382,12 @@ export function useAnalysis({
         if (partialApplied.length > 0) {
           try {
             const refreshedDeck = await readDeckSnapshot();
-            const stylePhase = runStyleMapPhase(refreshedDeck, selectedExemplarSlideId, exemplarMode);
+            const stylePhase = runStyleMapPhase(
+              refreshedDeck,
+              selectedExemplarSlideId,
+              exemplarMode,
+              additionalExemplarSlideIds
+            );
             const refreshed = finishAnalysisFromStyleMap(stylePhase);
 
             const patchLog = [...documentState.patchLog, ...partialApplied];
@@ -373,7 +400,8 @@ export function useAnalysis({
                 slideId: refreshed.exemplarSlideId,
                 mode: exemplarMode,
                 normalizationAppliedToSlide: false,
-                selectedAtIso: documentState.exemplar?.selectedAtIso ?? new Date().toISOString()
+                selectedAtIso: documentState.exemplar?.selectedAtIso ?? new Date().toISOString(),
+                ...(additionalExemplarSlideIds.length ? { additionalSlideIds: additionalExemplarSlideIds } : {})
               },
               styleMap: refreshed.analysis.styleMap,
               findings: refreshed.analysis.findings,
@@ -405,6 +433,7 @@ export function useAnalysis({
       }
     },
     [
+      additionalExemplarSlideIds,
       analysisState,
       applyPatchCapability.reason,
       applyPatchCapability.supported,
@@ -494,6 +523,8 @@ export function useAnalysis({
     analysisState,
     selectedExemplarSlideId,
     setSelectedExemplarSlideId,
+    additionalExemplarSlideIds,
+    setAdditionalExemplarSlideIds,
     exemplarMode,
     setExemplarMode,
     runCleanup,
@@ -512,7 +543,8 @@ export function useAnalysis({
 function runStyleMapPhase(
   deck: DeckSnapshot,
   selectedExemplarSlideId: string,
-  exemplarMode: ExemplarSelection["mode"]
+  exemplarMode: ExemplarSelection["mode"],
+  additionalSlideIds: string[]
 ): StyleMapPhaseResult {
   const exemplarSlide =
     deck.slides.find((slide) => slide.slideId === selectedExemplarSlideId) ?? deck.slides[0] ?? null;
@@ -521,13 +553,21 @@ function runStyleMapPhase(
     throw new Error("No slide available for exemplar selection.");
   }
 
-  const styleMapResult = buildStyleMap(exemplarSlide, exemplarMode);
+  const primaryStyleMap = buildStyleMap(exemplarSlide, exemplarMode).styleMap;
+  const additionalStyleMaps: StyleMap[] = [];
+  for (const id of additionalSlideIds) {
+    const slide = deck.slides.find((s) => s.slideId === id);
+    if (slide) {
+      additionalStyleMaps.push(buildStyleMap(slide, exemplarMode).styleMap);
+    }
+  }
+  const styleMap = mergeStyleMaps(primaryStyleMap, ...additionalStyleMaps);
   const exemplarHealth = scoreExemplarHealth(exemplarSlide);
 
   return {
     exemplarSlideId: exemplarSlide.slideId,
     exemplarMode,
-    styleMap: styleMapResult.styleMap,
+    styleMap,
     exemplarHealthScore: exemplarHealth.score,
     deck
   };

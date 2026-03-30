@@ -275,6 +275,46 @@ button {
   max-width: 240px;
 }
 
+.empty-state__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.empty-state__profile-load {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+  width: 100%;
+  max-width: 360px;
+  text-align: left;
+}
+
+.empty-state__profile-load-label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.empty-state__profile-textarea {
+  width: 100%;
+  min-height: 120px;
+  padding: 8px 10px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 11px;
+  line-height: 1.4;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface-elevated);
+  color: var(--text-primary);
+  resize: vertical;
+}
+
 /* —— Summary bar —— */
 .summary-panel {
   border: 1px solid var(--border-subtle);
@@ -568,6 +608,23 @@ button {
   gap: 8px;
   min-width: 0;
   overflow: hidden;
+}
+
+.additional-exemplar-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.additional-exemplar-row > label {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.additional-exemplar-remove {
+  flex: 0 0 auto;
+  align-self: center;
 }
 
 label {

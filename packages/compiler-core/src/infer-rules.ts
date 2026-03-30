@@ -10,6 +10,26 @@ import { ROLE_V1_VALUES } from "@magistrat/shared-types";
 import { stableHash } from "./hash.js";
 
 /**
+ * Merge exemplar StyleMaps: primary wins per role; additional maps fill roles missing from primary.
+ * Does not mutate inputs.
+ */
+export function mergeStyleMaps(primary: StyleMap, ...additional: StyleMap[]): StyleMap {
+  const result: StyleMap = { ...primary };
+  for (const roleKey of ROLE_V1_VALUES) {
+    if (roleKey === "UNKNOWN") continue;
+    if (result[roleKey]) continue;
+    for (const map of additional) {
+      const tokens = map[roleKey];
+      if (tokens) {
+        result[roleKey] = tokens;
+        break;
+      }
+    }
+  }
+  return result;
+}
+
+/**
  * Infer candidate rules from an exemplar's style map.
  * Each detected pattern becomes a confirmable rule.
  */

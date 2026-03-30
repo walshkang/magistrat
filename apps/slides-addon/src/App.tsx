@@ -39,6 +39,8 @@ export function App() {
     analysisState,
     selectedExemplarSlideId,
     setSelectedExemplarSlideId,
+    additionalExemplarSlideIds,
+    setAdditionalExemplarSlideIds,
     exemplarMode,
     setExemplarMode,
     runCleanup,
@@ -324,6 +326,52 @@ export function App() {
                 ))}
               </select>
             </label>
+
+            {additionalExemplarSlideIds.map((slideId, index) => (
+              <div key={`additional-exemplar-${index}`} className="additional-exemplar-row">
+                <label>
+                  Additional exemplar {index + 1}
+                  <select
+                    value={slideId}
+                    onChange={(event) => {
+                      const next = [...additionalExemplarSlideIds];
+                      next[index] = event.target.value;
+                      setAdditionalExemplarSlideIds(next);
+                    }}
+                    disabled={!deck}
+                  >
+                    {deck?.slides.map((slide) => (
+                      <option key={slide.slideId} value={slide.slideId}>
+                        {slide.index}. {slide.title || slide.slideId}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <button
+                  type="button"
+                  className="btn-ghost btn-sm additional-exemplar-remove"
+                  aria-label={`Remove additional exemplar ${index + 1}`}
+                  onClick={() =>
+                    setAdditionalExemplarSlideIds(additionalExemplarSlideIds.filter((_, i) => i !== index))
+                  }
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+
+            {deck && 1 + additionalExemplarSlideIds.length < 3 ? (
+              <button
+                type="button"
+                className="btn-ghost btn-sm"
+                onClick={() => {
+                  const defaultId = deck.slides[0]?.slideId ?? selectedExemplarSlideId;
+                  setAdditionalExemplarSlideIds([...additionalExemplarSlideIds, defaultId]);
+                }}
+              >
+                Add another exemplar
+              </button>
+            ) : null}
 
             <label>
               Style map mode

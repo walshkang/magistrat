@@ -30,6 +30,8 @@ export interface ExemplarSelection {
   mode: "original" | "token_normalized";
   normalizationAppliedToSlide: boolean;
   selectedAtIso: string;
+  /** Up to 2 additional exemplar slides (merged into StyleMap; primary wins per role). */
+  additionalSlideIds?: string[];
 }
 
 export interface RatifyBasisSummary {

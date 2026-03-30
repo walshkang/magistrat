@@ -1,6 +1,16 @@
+import type { RoleStyleTokens, StyleMap } from "@magistrat/shared-types";
 import { describe, expect, it } from "vitest";
-import { buildStyleMap, inferCandidateRules, inferRoles } from "../src/public-api.js";
+import { buildStyleMap, inferCandidateRules, inferRoles, mergeStyleMaps } from "../src/public-api.js";
 import { createDeck, createShape, createSlide } from "./fixtures.js";
+
+function tokens(partial: Partial<RoleStyleTokens> & Pick<RoleStyleTokens, "fontFamily" | "fontSizePt">): RoleStyleTokens {
+  return {
+    bold: false,
+    italic: false,
+    fontColor: "#000000",
+    ...partial
+  };
+}
 
 describe("inferCandidateRules", () => {
   it("infers typography rules from a simple exemplar", () => {
@@ -161,5 +171,39 @@ describe("inferCandidateRules", () => {
   it("returns empty candidates for empty style map", () => {
     const { candidates } = inferCandidateRules({});
     expect(candidates).toEqual([]);
+  });
+});
+
+describe("mergeStyleMaps", () => {
+  it("merges non-overlapping roles so both roles appear in the result", () => {
+    const primary: StyleMap = {
+      TITLE: tokens({ fontFamily: "Primary", fontSizePt: 28 })
+    };
+    const additional: StyleMap = {
+      BODY: tokens({ fontFamily: "BodyFont", fontSizePt: 14 })
+    };
+    const merged = mergeStyleMaps(primary, additional);
+    expect(merged.TITLE).toEqual(primary.TITLE);
+    expect(merged.BODY).toEqual(additional.BODY);
+  });
+
+  it("keeps primary tokens when both maps define the same role", () => {
+    const primary: StyleMap = {
+      TITLE: tokens({ fontFamily: "PrimaryTitle", fontSizePt: 32 })
+    };
+    const additional: StyleMap = {
+      TITLE: tokens({ fontFamily: "OtherTitle", fontSizePt: 40 })
+    };
+    const merged = mergeStyleMaps(primary, additional);
+    expect(merged.TITLE).toEqual(primary.TITLE);
+    expect(merged.TITLE?.fontFamily).toBe("PrimaryTitle");
+  });
+
+  it("returns primary unchanged when there are no additional maps", () => {
+    const primary: StyleMap = {
+      TITLE: tokens({ fontFamily: "Only", fontSizePt: 24 })
+    };
+    const merged = mergeStyleMaps(primary);
+    expect(merged).toEqual(primary);
   });
 });
