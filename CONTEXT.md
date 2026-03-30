@@ -1,10 +1,11 @@
 # Magistrat Context
 
 ## Active Phase
-- Phase 7C: "Multi-exemplar" — Multiple exemplar slides contributing rules **Done**
+- Phase 7D-rules: Role inference tightening + breadcrumb geometry band — in progress
 
 ## Next Epic
-- Phase 7D: TBD — slide master generation, or real-doc validation pass
+- Phase 7D-tests: Test quality pass (Opus — deep work)
+- Phase 7D-rest: REST API provider (prerequisite for 7E+)
 
 ## Immediate Blocker
 - None.
@@ -28,7 +29,17 @@ See `~/.claude/plans/keen-fluttering-sparrow.md` for full plan.
 ## Known Gaps (Phase 7B)
 - Export profile button only appears after a scan (`analysisState && ruleProfile`). A user who imports a profile but hasn't scanned yet cannot re-export it to verify. Low priority: they can scan first.
 
-## Phase 7D — REST API Provider (prerequisite for 7E+)
+## Phase 7D-tests — Test Quality Pass (Opus, before REST API work)
+Existing compiler-core tests (17 files, 111 tests) were written alongside implementation — correctness is likely fine but readability/verifiability is uneven. Before the REST API provider touches the adapter layer, retrofit tests to human-verifiable standard:
+- Named fixture helpers (not `shape1`/`shape2`)
+- Each `it()` has a plain-English comment describing the real-world scenario
+- Explicit negative cases for every rule
+- Geometry values annotated with why they were chosen
+- **Do not change assertions** — only improve fixture naming, add comments, add missing negative cases
+
+**Use Opus for this.** It requires reading implementation + test files together, reasoning about what each test is actually guarding, and making judgment calls about which negative cases are missing vs. redundant.
+
+## Phase 7D-rest — REST API Provider (prerequisite for 7E+)
 The Apps Script Add-on API returns `null` for theme-inherited typography (fontFamily, fontSize, etc.), causing widespread `API_LIMITATION` skips on real decks. The Google Slides REST API returns resolved/computed values. This is a prerequisite for:
 - Accurate inspection of master-styled slides (the majority of shapes in real decks)
 - Slide master generation (7E) — reading and writing master layouts requires REST API
