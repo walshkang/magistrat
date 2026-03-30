@@ -270,7 +270,7 @@ function translateNotAnalyzed(finding: Finding): TranslatedFinding {
     EXPECTED_CONFIDENCE_LOW: "Expected values could not be determined with sufficient confidence.",
     UNSUPPORTED_OBJECT_TYPE: "This object type is not supported by current checks.",
     GROUPED_OBJECT_UNSAFE: "This object is inside a group and cannot be safely analyzed.",
-    API_LIMITATION: "Required data was unavailable in the current host runtime.",
+    API_LIMITATION: "Formatting is inherited from the slide master or theme. Magistrat can't read these values via the Add-on API — a future update will resolve this using the Slides REST API.",
     AMBIGUOUS_TEXT_RUNS: "Text content could not be reliably read.",
     AUTOFIT_PRESENT: "Autofit is enabled — font size checks are not safe to run.",
     VALIDATION_UNAVAILABLE: "Validation checks could not be performed."

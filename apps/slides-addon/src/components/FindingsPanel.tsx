@@ -9,7 +9,7 @@ import { useMemo } from "react";
 import { FindingCard } from "./FindingCard.js";
 import { SlideGroup } from "./SlideGroup.js";
 
-const BUCKET_ORDER: NotAnalyzedBucket[] = ["cant_inspect", "cant_match", "no_rule"];
+const BUCKET_ORDER: NotAnalyzedBucket[] = ["cant_match", "no_rule"];
 
 export interface FindingsPanelProps {
   findings: Finding[];
@@ -80,17 +80,22 @@ export function FindingsPanel({
   onIgnoreFinding,
   ignoredFindingIds
 }: FindingsPanelProps) {
-  const { analyzed, notAnalyzed } = useMemo(() => {
+  const { analyzed, notAnalyzed, themeInheritedCount } = useMemo(() => {
     const analyzedList: Finding[] = [];
     const notAnalyzedList: Finding[] = [];
+    let themeCount = 0;
     for (const f of findings) {
       if (f.coverage === "NOT_ANALYZED") {
-        notAnalyzedList.push(f);
+        if (f.notAnalyzedReason === "API_LIMITATION") {
+          themeCount++;
+        } else {
+          notAnalyzedList.push(f);
+        }
       } else {
         analyzedList.push(f);
       }
     }
-    return { analyzed: analyzedList, notAnalyzed: notAnalyzedList };
+    return { analyzed: analyzedList, notAnalyzed: notAnalyzedList, themeInheritedCount: themeCount };
   }, [findings]);
 
   const slideGroups = useMemo(() => groupBySlideId(analyzed), [analyzed]);
@@ -100,7 +105,7 @@ export function FindingsPanel({
 
   const showAllNotAnalyzedSummary =
     analyzed.length === 0 &&
-    notAnalyzed.length > 0 &&
+    (notAnalyzed.length > 0 || themeInheritedCount > 0) &&
     coverage !== undefined &&
     coverage !== null;
 
@@ -139,7 +144,8 @@ export function FindingsPanel({
       {showAllNotAnalyzedSummary ? (
         <p className="findings-panel__coverage-summary muted">
           Magistrat checked {PLAYBOOK_RULE_COUNT} rules across {coverage.totalObjects} objects.{" "}
-          {coverage.notAnalyzedObjects} objects couldn&apos;t be analyzed.
+          {coverage.notAnalyzedObjects} objects couldn&apos;t be analyzed
+          {themeInheritedCount > 0 ? ` (${themeInheritedCount} use theme formatting)` : ""}.
         </p>
       ) : null}
 

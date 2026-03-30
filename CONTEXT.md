@@ -28,9 +28,16 @@ See `~/.claude/plans/keen-fluttering-sparrow.md` for full plan.
 ## Known Gaps (Phase 7B)
 - Export profile button only appears after a scan (`analysisState && ruleProfile`). A user who imports a profile but hasn't scanned yet cannot re-export it to verify. Low priority: they can scan first.
 
-## Phase 7D Candidates
-- **Slide master generation**: infer style map + position bands → generate Google Slides master (needs Slides API, not Apps Script)
-- **Real-doc validation pass**: test against a real deck with all Phase 7 features active
+## Phase 7D — REST API Provider (prerequisite for 7E+)
+The Apps Script Add-on API returns `null` for theme-inherited typography (fontFamily, fontSize, etc.), causing widespread `API_LIMITATION` skips on real decks. The Google Slides REST API returns resolved/computed values. This is a prerequisite for:
+- Accurate inspection of master-styled slides (the majority of shapes in real decks)
+- Slide master generation (7E) — reading and writing master layouts requires REST API
+
+**Scope:** New `google-rest-provider.ts` in google-adapter alongside the existing providers. Reads presentation via `slides.presentations.get` (OAuth token from Apps Script `ScriptApp.getOAuthToken()`). Bridges into the existing `DeckSnapshot` shape. No write path needed in this slice.
+
+## Phase 7E Candidates (after REST API)
+- **Slide master generation**: infer style map + position bands → generate a Google Slides master layout
+- **Visual error highlighting**: navigate sidebar to the offending shape on click (requires REST API or `SlidesApp.getSelection()`)
 
 ## Decisions Locked For v1
 - Google Slides sidebar primary target, with Office parity track maintained.
