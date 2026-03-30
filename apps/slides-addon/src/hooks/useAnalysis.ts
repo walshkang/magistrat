@@ -16,6 +16,7 @@ import {
   readDeckSnapshot,
   saveDocumentState
 } from "@magistrat/google-adapter";
+import { importRuleProfileJson } from "@magistrat/shared-types";
 import type {
   CandidateRule,
   CoverageSnapshot,
@@ -31,6 +32,9 @@ import type {
 } from "@magistrat/shared-types";
 import { useCallback, useEffect, useState, type Dispatch, type SetStateAction } from "react";
 import { reconcilePatchLogByRecordIdentity } from "../patchLog.js";
+
+/** Shown after a rule profile is loaded from JSON (App closes import UI when this message is set). */
+export const PROFILE_LOADED_MESSAGE = "Profile loaded. Ready to scan.";
 
 export interface AnalysisState {
   findings: Finding[];
@@ -420,6 +424,38 @@ export function useAnalysis({
     await applyPatchesWithRefresh(analysisState.safePatches, "Apply safe failed.");
   }, [analysisState, applyPatchesWithRefresh, deck, documentState]);
 
+  const loadProfileFromJson = useCallback(
+    async (json: string) => {
+      if (!documentState) {
+        return;
+      }
+
+      let profile: RuleProfile;
+      try {
+        profile = importRuleProfileJson(json);
+      } catch {
+        setMessage("Invalid profile JSON — check format.");
+        return;
+      }
+
+      const nowIso = new Date().toISOString();
+      const nextState: DocumentStateV1 = {
+        ...documentState,
+        lastUpdatedIso: nowIso,
+        ...(profile !== undefined ? { ruleProfile: profile } : {})
+      };
+
+      try {
+        await saveDocumentState(nextState);
+        setDocumentState(nextState);
+        setMessage(PROFILE_LOADED_MESSAGE);
+      } catch (error: unknown) {
+        setMessage(error instanceof Error ? error.message : "Failed to save profile.");
+      }
+    },
+    [documentState, setDocumentState]
+  );
+
   const applyForFinding = useCallback(
     async (findingId: string) => {
       if (!analysisState || !documentState || !deck) {
@@ -467,6 +503,7 @@ export function useAnalysis({
     openRuleConfirmationEditor,
     applySafe,
     applyForFinding,
+    loadProfileFromJson,
     message,
     setMessage
   };

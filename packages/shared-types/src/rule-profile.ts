@@ -54,3 +54,37 @@ export interface RuleProfile {
 export interface InferCandidateRulesResult {
   candidates: CandidateRule[];
 }
+
+export function exportRuleProfileJson(profile: RuleProfile): string {
+  return JSON.stringify(profile, null, 2);
+}
+
+/**
+ * Parses and validates JSON as a {@link RuleProfile}.
+ * @throws Error with message "Invalid rule profile" if JSON is malformed or shape is invalid.
+ */
+export function importRuleProfileJson(json: string): RuleProfile {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(json) as unknown;
+  } catch {
+    throw new Error("Invalid rule profile");
+  }
+
+  if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new Error("Invalid rule profile");
+  }
+
+  const obj = parsed as Record<string, unknown>;
+  if (typeof obj.id !== "string" || typeof obj.name !== "string" || !Array.isArray(obj.rules)) {
+    throw new Error("Invalid rule profile");
+  }
+
+  for (const item of obj.rules) {
+    if (item === null || typeof item !== "object" || Array.isArray(item)) {
+      throw new Error("Invalid rule profile");
+    }
+  }
+
+  return parsed as RuleProfile;
+}

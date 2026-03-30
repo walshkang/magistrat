@@ -1,6 +1,6 @@
 import { computeAlignmentScore } from "@magistrat/compiler-core";
 import { getDocumentId, getRuntimeStatus, saveDocumentState } from "@magistrat/google-adapter";
-import type { DocumentStateV1 } from "@magistrat/shared-types";
+import { exportRuleProfileJson, type DocumentStateV1 } from "@magistrat/shared-types";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AlignmentScoreBar } from "./components/AlignmentScoreBar.js";
 import { ChangeHistory } from "./components/ChangeHistory.js";
@@ -10,7 +10,7 @@ import { DevModeToggle } from "./components/DevModeToggle.js";
 import { FindingsPanel } from "./components/FindingsPanel.js";
 import { RuleConfirmationPanel } from "./components/RuleConfirmationPanel.js";
 import { useDevMode } from "./context/DevModeContext.js";
-import { useAnalysis } from "./hooks/useAnalysis.js";
+import { PROFILE_LOADED_MESSAGE, useAnalysis } from "./hooks/useAnalysis.js";
 import { usePatchLog } from "./hooks/usePatchLog.js";
 import { messageLooksPersistent } from "./messageToast.js";
 import { getRestoreUiDisabledReason } from "./patchLog.js";
@@ -28,6 +28,9 @@ export function App() {
   const [exemplarExpanded, setExemplarExpanded] = useState(true);
   const hasCollapsedExemplarAfterScanRef = useRef(false);
   const [selectedSlideId, setSelectedSlideId] = useState<string | null>(null);
+  const [profileJsonDraft, setProfileJsonDraft] = useState("");
+  const [showProfileLoader, setShowProfileLoader] = useState(false);
+  const pendingProfileApplyRef = useRef(false);
 
   const {
     loading,
@@ -45,6 +48,7 @@ export function App() {
     openRuleConfirmationEditor,
     applySafe,
     applyForFinding,
+    loadProfileFromJson,
     message,
     setMessage
   } = useAnalysis({
@@ -131,6 +135,15 @@ export function App() {
     const id = window.setTimeout(() => setMessage(""), 5000);
     return () => window.clearTimeout(id);
   }, [message, setMessage]);
+
+  useEffect(() => {
+    if (!pendingProfileApplyRef.current || message !== PROFILE_LOADED_MESSAGE) {
+      return;
+    }
+    pendingProfileApplyRef.current = false;
+    setShowProfileLoader(false);
+    setProfileJsonDraft("");
+  }, [message]);
 
   const { patchLogGroups, patchStateCounts, reconcileNow, restoreBefore, ratify } = usePatchLog({
     documentState,
@@ -341,6 +354,23 @@ export function App() {
                 Edit rules
               </button>
             ) : null}
+            {analysisState && documentState?.ruleProfile ? (
+              <button
+                type="button"
+                className="btn-ghost btn-sm"
+                onClick={() => {
+                  const profile = documentState?.ruleProfile;
+                  if (!profile) {
+                    return;
+                  }
+                  void navigator.clipboard.writeText(exportRuleProfileJson(profile));
+                  setMessage("Profile copied to clipboard.");
+                }}
+                disabled={pendingRuleConfirmation !== null}
+              >
+                Export profile
+              </button>
+            ) : null}
           </div>
           {analysisState && !devMode ? (
             <p className="exemplar-health-summary">Exemplar health: {analysisState.exemplarHealthScore}/100</p>
@@ -365,14 +395,47 @@ export function App() {
             <p>Scan your deck to check</p>
             <p>alignment with the exemplar</p>
           </div>
-          <button
-            type="button"
-            className="btn-primary"
-            onClick={() => void runCleanup()}
-            disabled={!canRunScan || pendingRuleConfirmation !== null}
-          >
-            Scan deck
-          </button>
+          <div className="empty-state__actions">
+            <button
+              type="button"
+              className="btn-primary"
+              onClick={() => void runCleanup()}
+              disabled={!canRunScan || pendingRuleConfirmation !== null}
+            >
+              Scan deck
+            </button>
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={() => setShowProfileLoader((open) => !open)}
+            >
+              Load profile
+            </button>
+          </div>
+          {showProfileLoader ? (
+            <div className="empty-state__profile-load">
+              <label className="empty-state__profile-load-label">
+                Paste rule profile JSON
+                <textarea
+                  className="empty-state__profile-textarea"
+                  value={profileJsonDraft}
+                  onChange={(e) => setProfileJsonDraft(e.target.value)}
+                  rows={8}
+                  spellCheck={false}
+                />
+              </label>
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={() => {
+                  pendingProfileApplyRef.current = true;
+                  void loadProfileFromJson(profileJsonDraft);
+                }}
+              >
+                Apply profile
+              </button>
+            </div>
+          ) : null}
         </section>
       ) : null}
 

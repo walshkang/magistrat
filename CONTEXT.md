@@ -1,10 +1,10 @@
 # Magistrat Context
 
 ## Active Phase
-- Phase 7A: "Intelligent" — Exemplar rule inference **Done**
+- Phase 7B: "Profiles as Templates" — Rule profile export/import **Done**
 
 ## Next Epic
-- Phase 7: "Intelligent" (customizable rulesets, exemplar inference, slide master generation)
+- Phase 7C: Multi-exemplar (multiple slides contributing rules for different roles)
 
 ## Immediate Blocker
 - None.
@@ -21,6 +21,15 @@ See `~/.claude/plans/keen-fluttering-sparrow.md` for full plan.
 | 4. Exceptions / Ignore | 1 wk | **Complete** — ignore workflow, score adjustment, exceptions panel |
 | 5. Ship (CI, deploy, reliability) | 2 wk | **Complete** — CI gate, ErrorBoundary, telemetry, state migration, clasp deploy, office parity audit |
 | 6. Complete (24 rules, Office write) | 6 wk | **Complete** — ToleranceConfig, 23 rules, Office SAFE write, taskpane UI parity |
+| 7A. Intelligent (exemplar inference) | — | **Complete** — inferCandidateRules, RuleConfirmationPanel, RuleProfile persisted |
+| 7B. Profiles as Templates (export/import) | — | **Complete** — clipboard export, JSON paste import, auto-close on success |
+
+## Known Gaps (Phase 7B)
+- Export profile button only appears after a scan (`analysisState && ruleProfile`). A user who imports a profile but hasn't scanned yet cannot re-export it to verify. Low priority: they can scan first.
+
+## Phase 7C Candidates
+- **Multi-exemplar**: multiple slides each contributing rules for the roles they contain (solves "different roles on different slides" gap from real-doc testing)
+- **Slide master generation**: infer style map + position bands → generate Google Slides master (needs Slides API, not Apps Script)
 
 ## Decisions Locked For v1
 - Google Slides sidebar primary target, with Office parity track maintained.
