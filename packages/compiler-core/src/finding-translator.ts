@@ -247,6 +247,13 @@ const RULE_TRANSLATORS: Record<string, RuleTranslator> = {
     riskLabel: "Manual only"
   }),
 
+  "BP-LAYOUT-004": (_f) => ({
+    title: "Breadcrumb out of position",
+    description: "This element appears to be a section breadcrumb but its horizontal position differs from the exemplar.",
+    actionLabel: null,
+    riskLabel: "Manual only"
+  }),
+
   "BP-SAFETY-001": (f) => ({
     title: "Grouped object and geometry patch",
     description: `A ${str(f.observed.patchOp)} patch would target a grouped shape. Apply geometry changes manually after ungrouping if appropriate.`,

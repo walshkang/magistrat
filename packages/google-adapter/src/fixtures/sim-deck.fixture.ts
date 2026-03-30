@@ -1,4 +1,115 @@
-import type { DeckSnapshot } from "@magistrat/shared-types";
+import type { DeckSnapshot, ShapeSnapshot } from "@magistrat/shared-types";
+
+/** Breadcrumb — top-left band, small text */
+function makeSimBreadcrumbShape(): ShapeSnapshot {
+  return {
+    objectId: "shape-breadcrumb",
+    name: "Breadcrumb",
+    shapeType: "TEXT",
+    visible: true,
+    grouped: false,
+    zIndex: 0,
+    textRuns: [
+      {
+        text: "Section 1",
+        fontFamily: "Aptos",
+        fontSizePt: 10,
+        bold: false,
+        italic: false,
+        fontColor: "#445566",
+        fontAlpha: 1
+      }
+    ],
+    paragraphs: [{ level: 0, text: "Section 1" }],
+    geometry: {
+      left: 30,
+      top: 20,
+      width: 120,
+      height: 18,
+      rotation: 0
+    },
+    supportedForAnalysis: true,
+    autofitEnabled: false,
+    inspectability: {
+      typography: true,
+      bullets: false
+    }
+  };
+}
+
+/** Legitimate footer — above old 470 rule but within new footer threshold band */
+function makeSimFooterBandShape(): ShapeSnapshot {
+  return {
+    objectId: "shape-footer-acme",
+    name: "Footer",
+    shapeType: "TEXT",
+    visible: true,
+    grouped: false,
+    zIndex: 5,
+    textRuns: [
+      {
+        text: "Acme Corp",
+        fontFamily: "Aptos",
+        fontSizePt: 10,
+        bold: false,
+        italic: false,
+        fontColor: "#666666",
+        fontAlpha: 1
+      }
+    ],
+    paragraphs: [{ level: 0, text: "Acme Corp" }],
+    geometry: {
+      left: 600,
+      top: 390,
+      width: 80,
+      height: 14,
+      rotation: 0
+    },
+    supportedForAnalysis: true,
+    autofitEnabled: false,
+    inspectability: {
+      typography: true,
+      bullets: false
+    }
+  };
+}
+
+/** Overflow body — must NOT score as FOOTER under tightened rules */
+function makeSimOverflowBodyShape(): ShapeSnapshot {
+  return {
+    objectId: "shape-overflow-body",
+    name: "Overflow body",
+    shapeType: "TEXT",
+    visible: true,
+    grouped: false,
+    zIndex: 6,
+    textRuns: [
+      {
+        text: "Additional context that didn't fit",
+        fontFamily: "Aptos",
+        fontSizePt: 18,
+        bold: false,
+        italic: false,
+        fontColor: "#333333",
+        fontAlpha: 1
+      }
+    ],
+    paragraphs: [{ level: 0, text: "Additional context that didn't fit" }],
+    geometry: {
+      left: 60,
+      top: 360,
+      width: 500,
+      height: 30,
+      rotation: 0
+    },
+    supportedForAnalysis: true,
+    autofitEnabled: false,
+    inspectability: {
+      typography: true,
+      bullets: false
+    }
+  };
+}
 
 export const simDeckFixture: DeckSnapshot = {
   deckId: "sim-google-deck",
@@ -101,7 +212,8 @@ export const simDeckFixture: DeckSnapshot = {
             typography: true,
             bullets: true
           }
-        }
+        },
+        makeSimBreadcrumbShape()
       ]
     },
     {
@@ -189,6 +301,8 @@ export const simDeckFixture: DeckSnapshot = {
             bullets: false
           }
         },
+        makeSimFooterBandShape(),
+        makeSimOverflowBodyShape(),
         {
           objectId: "shape-semi-transparent",
           name: "Faded note",

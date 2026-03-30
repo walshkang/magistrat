@@ -23,7 +23,11 @@ export interface RoleStyleTokens {
   footerTopMedian?: number;
 }
 
-export type StyleMap = Partial<Record<RoleV1, RoleStyleTokens>>;
+/** Role-keyed exemplar tokens plus optional layout anchors not tied to RoleV1. */
+export type StyleMap = Partial<Record<RoleV1, RoleStyleTokens>> & {
+  /** Median position of exemplar breadcrumb candidates (UNKNOWN, top-left band, small type). */
+  breadcrumbBand?: { left: number; top: number } | undefined;
+};
 
 export interface ExemplarSelection {
   slideId: string;

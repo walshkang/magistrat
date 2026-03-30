@@ -90,11 +90,11 @@ function scoreRole(shape: ShapeSnapshot): RoleConfidence {
     return { role: "TITLE", score: 0.93 };
   }
 
-  if (shape.geometry.top <= 170 && firstRun.fontSizePt >= 16 && firstRun.fontSizePt < 24) {
+  if (shape.geometry.top <= 200 && firstRun.fontSizePt >= 16 && firstRun.fontSizePt < 24) {
     return { role: "SUBTITLE", score: 0.9 };
   }
 
-  if (shape.geometry.top >= 470 && firstRun.fontSizePt <= 14) {
+  if (shape.geometry.top >= 340 && firstRun.fontSizePt <= 12) {
     return { role: "FOOTER", score: 0.88 };
   }
 

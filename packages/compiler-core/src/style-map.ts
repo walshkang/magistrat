@@ -103,6 +103,32 @@ function augmentLayoutBands(styleMap: StyleMap, inferredSlide: SlideSnapshot): v
   } else if (footerEntry) {
     footerEntry.hasGeometryCluster = false;
   }
+
+  const breadcrumbCandidates = inferredSlide.shapes.filter((shape) => {
+    if (shape.inferredRole !== "UNKNOWN" || shape.textRuns.length === 0) {
+      return false;
+    }
+    const g = shape.geometry;
+    if (g.width * g.height <= 0) {
+      return false;
+    }
+    if (g.top >= 60 || g.left >= 200) {
+      return false;
+    }
+    return shape.textRuns.some((run) => run.fontSizePt <= 13);
+  });
+
+  if (breadcrumbCandidates.length > 0) {
+    const lefts = [...breadcrumbCandidates.map((s) => s.geometry.left)].sort((a, b) => a - b);
+    const tops = [...breadcrumbCandidates.map((s) => s.geometry.top)].sort((a, b) => a - b);
+    const midL = Math.floor(lefts.length / 2);
+    const midT = Math.floor(tops.length / 2);
+    const medianLeft =
+      lefts.length % 2 === 1 ? lefts[midL]! : (lefts[midL - 1]! + lefts[midL]!) / 2;
+    const medianTop =
+      tops.length % 2 === 1 ? tops[midT]! : (tops[midT - 1]! + tops[midT]!) / 2;
+    styleMap.breadcrumbBand = { left: medianLeft, top: medianTop };
+  }
 }
 
 function selectDominantRun(

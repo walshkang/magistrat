@@ -108,7 +108,8 @@ describe("Phase 2B batch 2 rules", () => {
       return createShape({
         objectId,
         fillColor,
-        geometry: { left: 40, top: 200, width: 400, height: 80, rotation: 0 },
+        // top > 200 so SUBTITLE band (≤200) does not steal CALLOUT after Phase 7D threshold change
+        geometry: { left: 40, top: 210, width: 400, height: 80, rotation: 0 },
         textRuns: [
           {
             text: "Short note!",

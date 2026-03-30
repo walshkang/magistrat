@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { inferRoles } from "../src/public-api.js";
-import { createDeck, createShape, createSlide } from "./fixtures.js";
+import { createDeck, createShape, createSlide, makeFooterBandShape, makeOverflowBodyShape, makeSubtitleBandShape } from "./fixtures.js";
 
 describe("inferRoles", () => {
+  // Same deck snapshot should infer identical roles on repeat runs
   it("is deterministic for the same deck", () => {
     const deck = createDeck({
       slides: [
@@ -57,6 +58,7 @@ describe("inferRoles", () => {
     expect(inferredTitleRole).toBe("TITLE");
   });
 
+  // Charts and other unsupported host objects are explicitly not analyzed
   it("emits not analyzed for unsupported objects", () => {
     const deck = createDeck({
       slides: [
@@ -75,5 +77,35 @@ describe("inferRoles", () => {
     const result = inferRoles(deck);
     expect(result.notAnalyzed).toHaveLength(1);
     expect(result.notAnalyzed[0]?.reason).toBe("UNSUPPORTED_OBJECT_TYPE");
+  });
+
+  // Overflow body text pushed to bottom of slide must not be misclassified as FOOTER
+  it("shape at top=360 with 18pt font does NOT score FOOTER", () => {
+    const deck = createDeck({
+      slides: [createSlide({ shapes: [makeOverflowBodyShape()] })]
+    });
+    const result = inferRoles(deck);
+    const shape = result.deck.slides[0]?.shapes[0];
+    expect(shape?.inferredRole).not.toBe("FOOTER");
+  });
+
+  // Shape at top=390 with 10pt font scores FOOTER under loosened threshold
+  it("shape at top=390 with 10pt font scores FOOTER", () => {
+    const deck = createDeck({
+      slides: [createSlide({ shapes: [makeFooterBandShape()] })]
+    });
+    const result = inferRoles(deck);
+    const shape = result.deck.slides[0]?.shapes[0];
+    expect(shape?.inferredRole).toBe("FOOTER");
+  });
+
+  // Subtitle at top=185 is now within loosened threshold
+  it("shape at top=185 with 18pt font scores SUBTITLE", () => {
+    const deck = createDeck({
+      slides: [createSlide({ shapes: [makeSubtitleBandShape()] })]
+    });
+    const result = inferRoles(deck);
+    const shape = result.deck.slides[0]?.shapes[0];
+    expect(shape?.inferredRole).toBe("SUBTITLE");
   });
 });

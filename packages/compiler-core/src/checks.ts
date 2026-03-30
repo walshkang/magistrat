@@ -105,6 +105,10 @@ export function runChecks(deck: DeckSnapshot, styleMap: StyleMap, tolerance?: To
       const role = shape.inferredRole ?? "UNKNOWN";
       const roleScore = shape.inferredRoleScore ?? 0;
 
+      for (const finding of evaluateBreadcrumbLayoutFindings(slide, shape, styleMap, tol)) {
+        pushFinding(finding);
+      }
+
       if (role === "UNKNOWN" || roleScore < ROLE_CONFIDENCE_MIN.manual) {
         pushFinding(
           createNotAnalyzedFinding(
@@ -1102,6 +1106,55 @@ function evaluateTitleFooterLayoutFindings(
   }
 
   return findings;
+}
+
+function evaluateBreadcrumbLayoutFindings(
+  slide: DeckSnapshot["slides"][number],
+  shape: DeckSnapshot["slides"][number]["shapes"][number],
+  styleMap: StyleMap,
+  tol: ToleranceConfig
+): Finding[] {
+  const band = styleMap.breadcrumbBand;
+  if (!band) {
+    return [];
+  }
+  const role = shape.inferredRole ?? "UNKNOWN";
+  if (role !== "UNKNOWN") {
+    return [];
+  }
+  const g = shape.geometry;
+  if (g.top >= 80 || g.left >= 250) {
+    return [];
+  }
+  if (!shape.textRuns.some((run) => run.fontSizePt <= 13)) {
+    return [];
+  }
+  const delta = Math.abs(g.left - band.left);
+  if (delta <= tol.positionPt) {
+    return [];
+  }
+  const roleScore = shape.inferredRoleScore ?? 0;
+  const findingId = `finding-${stableHash([slide.slideId, shape.objectId, "BP-LAYOUT-004"])}`;
+  return [
+    {
+      id: findingId,
+      ruleId: "BP-LAYOUT-004",
+      source: "exemplar",
+      slideId: slide.slideId,
+      objectId: shape.objectId,
+      role: "UNKNOWN",
+      observed: { left: g.left, deltaFromExemplarLeft: delta },
+      expected: { breadcrumbBandLeft: band.left, tolerancePt: tol.positionPt },
+      evidence: [
+        evidence("EXEMPLAR_EVIDENCE", "Exemplar breadcrumb band left from style map."),
+        evidence("GEOMETRIC_EVIDENCE", "Breadcrumb horizontal position differs from exemplar.")
+      ],
+      confidence: roleScore,
+      risk: "manual",
+      severity: "info",
+      coverage: "ANALYZED"
+    }
+  ];
 }
 
 function evaluateLayoutMicroSnapFindings(

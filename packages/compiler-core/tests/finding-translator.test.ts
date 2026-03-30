@@ -376,6 +376,27 @@ describe("translateFinding", () => {
     });
   });
 
+  describe("BP-LAYOUT-004", () => {
+    it("breadcrumb drift uses fixed copy and manual risk", () => {
+      const result = translateFinding(
+        baseFinding({
+          ruleId: "BP-LAYOUT-004",
+          role: "UNKNOWN",
+          risk: "manual",
+          severity: "info",
+          observed: { left: 70, deltaFromExemplarLeft: 40 },
+          expected: { breadcrumbBandLeft: 30, tolerancePt: 6 }
+        })
+      );
+      expect(result.title).toBe("Breadcrumb out of position");
+      expect(result.description).toBe(
+        "This element appears to be a section breadcrumb but its horizontal position differs from the exemplar."
+      );
+      expect(result.actionLabel).toBeNull();
+      expect(result.riskLabel).toBe("Manual only");
+    });
+  });
+
   describe("BP-SAFETY-001", () => {
     it("mentions grouped shape and patch op", () => {
       const result = translateFinding(
