@@ -248,7 +248,7 @@ export function useAnalysis({
           findings: filteredResult.analysis.findings,
           coverage: filteredResult.analysis.coverage,
           lastUpdatedIso: nowIso,
-          ruleProfile: nextRuleProfile
+          ...(nextRuleProfile !== undefined ? { ruleProfile: nextRuleProfile } : {})
         };
 
         await saveDocumentState(nextState);
@@ -570,7 +570,7 @@ function filterStyleMapByCandidates(
     if (disabled.has("fillColor")) copy.fillColor = undefined;
     if (disabled.has("geometryBand")) {
       copy.hasGeometryCluster = false;
-      copy.geometryCentroid = undefined;
+      delete copy.geometryCentroid;
     }
     // fontSizePt and bold/italic: set to match-anything sentinels
     // For these, we can't null them (they're required). Instead we rely on
