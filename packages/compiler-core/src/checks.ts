@@ -17,6 +17,48 @@ import { ROLE_CONFIDENCE_MIN } from "./constants.js";
 import { stableHash } from "./hash.js";
 import { computeIOU } from "./iou.js";
 
+/** BP-HYGIENE-006 — draft bracket markers and TODO markers (case-insensitive). */
+const DRAFT_TAG_PATTERN =
+  /\[TBD\]|\[XX\]|\[DRAFT\]|\[INSERT[^\]]*\]|\[PLACEHOLDER[^\]]*\]|<PLACEHOLDER>|TODO:?/i;
+
+function parseHexRgb(hex: string): [number, number, number] | null {
+  const t = hex.trim();
+  const m6 = /^#?([0-9a-f]{6})$/i.exec(t);
+  if (m6?.[1]) {
+    const n = parseInt(m6[1], 16);
+    return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255];
+  }
+  const m3 = /^#?([0-9a-f]{3})$/i.exec(t);
+  const s = m3?.[1];
+  if (s && s.length === 3) {
+    const r = parseInt(s.charAt(0) + s.charAt(0), 16) / 255;
+    const g = parseInt(s.charAt(1) + s.charAt(1), 16) / 255;
+    const b = parseInt(s.charAt(2) + s.charAt(2), 16) / 255;
+    return [r, g, b];
+  }
+  return null;
+}
+
+function rgbToRelativeLuminance(rgb: [number, number, number]): number {
+  const lin = [0, 1, 2].map((i) => {
+    const c = rgb[i];
+    if (c === undefined) {
+      return 0;
+    }
+    return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  });
+  const r0 = lin[0] ?? 0;
+  const r1 = lin[1] ?? 0;
+  const r2 = lin[2] ?? 0;
+  return 0.2126 * r0 + 0.7152 * r1 + 0.0722 * r2;
+}
+
+function contrastRatio(l1: number, l2: number): number {
+  const lighter = Math.max(l1, l2);
+  const darker = Math.min(l1, l2);
+  return (lighter + 0.05) / (darker + 0.05);
+}
+
 export interface RunChecksResult {
   findings: Finding[];
   coverage: CoverageSnapshot;
@@ -298,6 +340,33 @@ function evaluateObjectHygiene(
     });
   }
 
+  const paragraphConcatForDraft = shape.paragraphs.map((p) => p.text).join("");
+  const draftMatch = paragraphConcatForDraft.match(DRAFT_TAG_PATTERN);
+  if (draftMatch) {
+    const findingId = `finding-${stableHash([slideId, objectId, "bp_hygiene_006"])}`;
+    findings.push({
+      id: findingId,
+      ruleId: "BP-HYGIENE-006",
+      source: "playbook",
+      slideId,
+      objectId,
+      role,
+      observed: { matchedToken: draftMatch[0] },
+      expected: { pattern: "no_draft_markers" },
+      evidence: [
+        evidence("PLAYBOOK_EVIDENCE", "Draft bracket pattern found in text content."),
+        evidence(
+          "HYGIENE_EVIDENCE",
+          "Draft markers in a final presentation undermine credibility with executive audiences."
+        )
+      ],
+      confidence: roleScore,
+      risk: "manual",
+      severity: "error",
+      coverage: "ANALYZED"
+    });
+  }
+
   const isPotentialGhost =
     !shape.visible &&
     shape.geometry.width * shape.geometry.height > tol.ghostMinArea &&
@@ -354,6 +423,63 @@ function evaluateObjectHygiene(
       severity: "warn",
       coverage: "ANALYZED"
     });
+  }
+
+  if (shape.fillColor) {
+    const fillRgb = parseHexRgb(shape.fillColor);
+    if (fillRgb) {
+      const fillLum = rgbToRelativeLuminance(fillRgb);
+      let worst: { ratio: number; fontColor: string; fontAlpha: number } | null = null;
+      for (const run of shape.textRuns) {
+        if (run.fontAlpha < 0.95) {
+          continue;
+        }
+        const textRgb = parseHexRgb(run.fontColor);
+        if (!textRgb) {
+          continue;
+        }
+        const textLum = rgbToRelativeLuminance(textRgb);
+        const ratio = contrastRatio(textLum, fillLum);
+        if (ratio >= tol.wcagMinContrastRatio) {
+          continue;
+        }
+        if (!worst || ratio < worst.ratio) {
+          worst = { ratio, fontColor: run.fontColor, fontAlpha: run.fontAlpha };
+        }
+      }
+      if (worst) {
+        const findingId = `finding-${stableHash([slideId, objectId, "bp_wcag_001"])}`;
+        findings.push({
+          id: findingId,
+          ruleId: "BP-WCAG-001",
+          source: "playbook",
+          slideId,
+          objectId,
+          role,
+          observed: {
+            contrastRatio: worst.ratio,
+            textColor: worst.fontColor,
+            fillColor: shape.fillColor,
+            fontAlpha: worst.fontAlpha
+          },
+          expected: { minContrastRatio: tol.wcagMinContrastRatio },
+          evidence: [
+            evidence(
+              "PLAYBOOK_EVIDENCE",
+              "WCAG 1.4.3 requires minimum 4.5:1 contrast ratio for standard text."
+            ),
+            evidence(
+              "COLOR_EVIDENCE",
+              "Computed contrast ratio between text and shape fill is below threshold."
+            )
+          ],
+          confidence: roleScore,
+          risk: "manual",
+          severity: "error",
+          coverage: "ANALYZED"
+        });
+      }
+    }
   }
 
   const canvas = { left: 0, top: 0, right: slideWidth, bottom: slideHeight };

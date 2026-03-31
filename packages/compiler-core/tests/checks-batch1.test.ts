@@ -34,6 +34,7 @@ function titleShape(
 
 describe("Phase 2B batch 1 rules", () => {
   describe("BP-TYPO-005 — line spacing vs exemplar", () => {
+    // Exemplar title uses 1.2× spacing; scan slide uses 1.4× — drift exceeds default 0.05 tolerance
     it("emits finding and SET_LINE_SPACING patch when spacing differs beyond tolerance", () => {
       const exemplarSlide = createSlide({
         slideId: "exemplar",
@@ -64,6 +65,7 @@ describe("Phase 2B batch 1 rules", () => {
       expect(patch?.validations).toEqual(["no_reflow_material_change"]);
     });
 
+    // Both slides use identical 1.2× spacing — no finding expected
     it("does not emit when line spacing matches", () => {
       const exemplarSlide = createSlide({
         slideId: "exemplar",
@@ -87,6 +89,7 @@ describe("Phase 2B batch 1 rules", () => {
       expect(result.suggestedPatches.some((p) => p.op === "SET_LINE_SPACING")).toBe(false);
     });
 
+    // Boundary: 0.05 drift exactly matches tolerance — should NOT fire (tolerance is inclusive)
     it("does not emit when absolute difference is exactly 0.05", () => {
       const exemplarSlide = createSlide({
         slideId: "exemplar",
@@ -111,13 +114,14 @@ describe("Phase 2B batch 1 rules", () => {
   });
 
   describe("BP-COLOR-002 — semi-transparent text", () => {
+    // Text at 50% opacity — classic "draft watermark" pattern that should be flagged
     it("flags alpha strictly between 0.01 and 0.95", () => {
       const deck = createDeck({
         slides: [
           createSlide({
             shapes: [
               createShape({
-                objectId: "semi",
+                objectId: "semi-transparent-watermark",
                 textRuns: [
                   {
                     text: "Faded",
@@ -137,18 +141,19 @@ describe("Phase 2B batch 1 rules", () => {
       const inferred = inferRoles(deck);
       const result = runChecks(inferred.deck, {});
 
-      const finding = result.findings.find((f) => f.ruleId === "BP-COLOR-002" && f.objectId === "semi");
+      const finding = result.findings.find((f) => f.ruleId === "BP-COLOR-002" && f.objectId === "semi-transparent-watermark");
       expect(finding).toBeDefined();
       expect(finding?.observed).toEqual({ fontAlpha: 0.5 });
     });
 
+    // Normal fully opaque text — should never trigger semi-transparency rule
     it("does not flag fully opaque text", () => {
       const deck = createDeck({
         slides: [
           createSlide({
             shapes: [
               createShape({
-                objectId: "opaque",
+                objectId: "fully-opaque-text",
                 textRuns: [
                   {
                     text: "Solid",
@@ -168,9 +173,10 @@ describe("Phase 2B batch 1 rules", () => {
       const inferred = inferRoles(deck);
       const result = runChecks(inferred.deck, {});
 
-      expect(result.findings.some((f) => f.ruleId === "BP-COLOR-002" && f.objectId === "opaque")).toBe(false);
+      expect(result.findings.some((f) => f.ruleId === "BP-COLOR-002" && f.objectId === "fully-opaque-text")).toBe(false);
     });
 
+    // Boundary: exactly 0.01 and 0.95 alpha are outside the (0.01, 0.95) exclusive range
     it("does not flag alpha at 0.01 or 0.95 (exclusive bounds)", () => {
       for (const alpha of [0.01, 0.95]) {
         const deck = createDeck({
@@ -206,14 +212,15 @@ describe("Phase 2B batch 1 rules", () => {
   });
 
   describe("BP-HYGIENE-002 — off-slide objects", () => {
+    // Shape placed 1000pt to the left of the canvas — 0% overlap (completely off-slide)
     it("flags when less than 10% of the object overlaps the slide canvas", () => {
       const deck = createDeck({
         slides: [
           createSlide({
             shapes: [
               createShape({
-                objectId: "off",
-                geometry: { left: -1000, top: 0, width: 400, height: 400, rotation: 0 }
+                objectId: "completely-offscreen-shape",
+                geometry: { left: -1000, top: 0, width: 400, height: 400, rotation: 0 } // entirely off-slide to the left
               })
             ]
           })
@@ -222,7 +229,9 @@ describe("Phase 2B batch 1 rules", () => {
       const inferred = inferRoles(deck);
       const result = runChecks(inferred.deck, {});
 
-      const finding = result.findings.find((f) => f.ruleId === "BP-HYGIENE-002" && f.objectId === "off");
+      const finding = result.findings.find(
+        (f) => f.ruleId === "BP-HYGIENE-002" && f.objectId === "completely-offscreen-shape"
+      );
       expect(finding).toBeDefined();
       expect((finding?.observed as { overlapRatio: number }).overlapRatio).toBe(0);
     });

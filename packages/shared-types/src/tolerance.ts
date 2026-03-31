@@ -40,6 +40,9 @@ export interface ToleranceConfig {
 
   /** Micro-snap delta threshold for BP-LAYOUT-003 (pt). Default 0.5. */
   geometryMicroSnapDeltaPt: number;
+
+  /** WCAG 1.4.3 minimum contrast ratio for opaque text vs solid fill (BP-WCAG-001). Default 4.5. */
+  wcagMinContrastRatio: number;
 }
 
 /** Returns the default tolerance config matching current hardcoded values. */
@@ -56,7 +59,8 @@ export function defaultToleranceConfig(): ToleranceConfig {
     semiTransparentAlphaMax: 0.95,
     canvas: { width: 720, height: 405 },
     positionPt: 6,
-    geometryMicroSnapDeltaPt: 0.5
+    geometryMicroSnapDeltaPt: 0.5,
+    wcagMinContrastRatio: 4.5
   };
 }
 
