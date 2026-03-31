@@ -419,6 +419,30 @@ Each rule follows this structure:
 
 ### Tier 1 — High Signal
 
+### BP-TYPO-009 — Bullet Punctuation Consistency
+- **Status:** proposed
+- **Source:** continuity
+- **Severity:** warn
+- **Risk:** manual
+- **Auto-fix:** no
+- **Type:** heuristic
+- **What it checks:** Scans terminal characters of level-0 bullet items within each text block and across the deck, flagging mixed punctuation (e.g., some ending with `.`, some bare)
+- **Why it matters:** Mixed terminal punctuation is a glaring sign of copy-pasted content from multiple authors. Execs zero in on this kind of syntactic sloppiness.
+- **Evidence:** TEXT_STRING_EVIDENCE, STRUCTURAL_EVIDENCE
+- **Notes:** Majority-vote per text box first, then deck-wide. Ignore sub-bullets (level ≥ 1) — they legitimately follow different rules. Buildable now (no IR changes).
+
+### BP-LAYOUT-007 — Left-Edge Misalignment ("Jitter" Check)
+- **Status:** proposed
+- **Source:** playbook
+- **Severity:** warn
+- **Risk:** caution
+- **Auto-fix:** yes (SNAP_TO_X)
+- **Type:** deterministic
+- **What it checks:** Groups text boxes and shapes by approximate X-coordinate (within a 5pt cluster threshold); flags objects whose left edge deviates from the group mode by 1–5pt
+- **Why it matters:** The human eye catches jitter instantly when scanning down a slide. A 2pt drift breaks the invisible grid that makes a deck look deliberate.
+- **Evidence:** GEOMETRIC_EVIDENCE
+- **Notes:** Auto-fix snaps outlier X to the mode of the cluster. Caution risk — snapping may be wrong if objects are intentionally offset (e.g., indented callouts). Buildable now (no IR changes).
+
 ### BP-TABLE-001 — Table Header Fill Color
 - **Status:** proposed
 - **Source:** exemplar
@@ -442,6 +466,50 @@ Each rule follows this structure:
 - **Why it matters:** Border color discipline (black vs. white vs. transparent) defines the visual hierarchy of financial and data tables. Mixed borders signal template mixing.
 - **Evidence:** EXEMPLAR_EVIDENCE, TABLE_EVIDENCE
 - **Notes:** Requires DeckSnapshot extension to capture per-edge border color and style per cell. Both OOXML and Slides API expose border properties at the cell level.
+
+---
+
+### Tier 2 — Good to Have
+
+### BP-TYPO-010 — Double Space Detection
+- **Status:** proposed
+- **Source:** playbook
+- **Severity:** info
+- **Risk:** safe
+- **Auto-fix:** yes (REPLACE_DOUBLE_SPACE)
+- **Type:** deterministic
+- **What it checks:** Scans all text runs for two or more consecutive space characters
+- **Why it matters:** Double spaces after periods are an outdated typist convention that breaks text alignment and justification on modern slides.
+- **Evidence:** PLAYBOOK_EVIDENCE, TEXT_STRING_EVIDENCE
+- **Notes:** Highly reliable regex. Auto-fix is universally safe. Buildable now (no IR changes).
+
+### BP-CHART-001 — Chart Series Color Off-Palette
+- **Status:** proposed
+- **Source:** playbook
+- **Severity:** error
+- **Risk:** manual
+- **Auto-fix:** no
+- **Type:** deterministic
+- **What it checks:** Fill colors of chart data series (bars, pie slices, lines) checked against the slide master or exemplar color palette
+- **Why it matters:** Charts pasted from Excel carry Microsoft's default blue/orange/gray palette, destroying the F100 brand system on every data slide.
+- **Evidence:** COLOR_EVIDENCE, CHART_EVIDENCE
+- **Notes:** Blocked — requires DeckSnapshot extension to read chart series properties. OOXML (`<c:chart>`) and Slides API both expose series colors. Same IR extension needed as TABLE-001/002.
+
+---
+
+### Tier 3 — Nice to Have
+
+### BP-CHART-002 — Missing Chart Axis Labels or Units
+- **Status:** proposed
+- **Source:** playbook
+- **Severity:** warn
+- **Risk:** manual
+- **Auto-fix:** no
+- **Type:** heuristic
+- **What it checks:** Flags column/line/scatter charts that lack a Y-axis title, or whose data labels contain no recognizable unit token (`$`, `%`, `M`, `B`, `K`)
+- **Why it matters:** "Naked numbers" violate Tufte's core principle. Board members will ask "Is this thousands or millions?" — every time.
+- **Evidence:** CHART_EVIDENCE, TEXT_STRING_EVIDENCE
+- **Notes:** Blocked — requires chart metadata extraction. False positives likely for index scores or ratios; manual review required.
 
 ---
 
