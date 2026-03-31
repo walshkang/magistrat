@@ -7,6 +7,33 @@
 
 ---
 
+## Implementation Roadmap
+
+### Phase 8B — Buildable Now (no IR changes)
+Rules ready for Cursor implementation in one batch:
+- **BP-TYPO-009** — Bullet Punctuation Consistency
+- **BP-TYPO-010** — Double Space Detection
+- **BP-TYPO-011** — Title Terminal Punctuation
+- **BP-LAYOUT-007** — Left-Edge Misalignment ("Jitter" Check)
+- **BP-LAYOUT-008** — Horizontal Distribution Consistency
+- **BP-LAYOUT-009** — Slide Text Density
+
+### Track A — Read API Extensions (unblocks blocked rules)
+Extend the existing Google and Office adapters to pull more fields from their respective APIs. No new permissions required — all data is already exposed. This is the right next step before Phase 7D.
+
+| IR gap | Affects |
+|---|---|
+| `ParagraphSnapshot.alignment` | BP-TYPO-012 |
+| `ShapeSnapshot.lineColor + lineWidth` | BP-COLOR-004 |
+| Image intrinsic dimensions | BP-LAYOUT-005 |
+| Table cell model (fill, borders, margins, font, alignment, vertical align) | BP-TABLE-001 through BP-TABLE-009 |
+| Chart series colors + axis metadata | BP-CHART-001, BP-CHART-002 |
+
+### Track B — Write API (Phase 7D, slide master generation)
+Generate a Google Slides master/layout from the exemplar style map. Requires Slides API write scope — currently the sidebar is read-only. Office parity for master generation is a separate design problem (PowerPoint XML master manipulation differs significantly from Slides API). Deferred until Track A is complete and master generation scope is properly shaped.
+
+---
+
 ## Schema
 
 Each rule follows this structure:
@@ -489,7 +516,67 @@ Each rule follows this structure:
 - **What it checks:** Table border colors (per edge: top/bottom/left/right) differ from the exemplar's table border schema
 - **Why it matters:** Border color discipline (black vs. white vs. transparent) defines the visual hierarchy of financial and data tables. Mixed borders signal template mixing.
 - **Evidence:** EXEMPLAR_EVIDENCE, TABLE_EVIDENCE
-- **Notes:** Requires DeckSnapshot extension to capture per-edge border color and style per cell. Both OOXML and Slides API expose border properties at the cell level.
+- **Notes:** Requires table cell model IR extension (Track A).
+
+### BP-TABLE-003 — Table Cell Margin / Padding Mismatch
+- **Status:** proposed
+- **Source:** exemplar
+- **Severity:** warn
+- **Risk:** safe
+- **Auto-fix:** yes (SET_CELL_MARGINS)
+- **Type:** deterministic
+- **What it checks:** Internal cell margins (top/bottom/left/right padding) compared against the exemplar table style
+- **Why it matters:** Pasted tables drop cell margins to 0pt, causing text to slam into border lines. Destroys readability.
+- **Evidence:** TABLE_EVIDENCE, GEOMETRIC_EVIDENCE
+- **Notes:** APIs expose cell margins natively. Auto-fix is universally safe. Requires table cell model IR extension (Track A).
+
+### BP-TABLE-004 — Intra-Column Alignment Consistency
+- **Status:** proposed
+- **Source:** playbook
+- **Severity:** warn
+- **Risk:** safe
+- **Auto-fix:** yes (APPLY_MAJORITY_ALIGNMENT)
+- **Type:** heuristic
+- **What it checks:** Within each column, flags data cells whose horizontal alignment (left/center/right) deviates from the column's majority alignment
+- **Why it matters:** A pasted row with center-aligned numbers in a right-aligned column is a glaring error. Smarter than forcing all numbers right — respects the column's own convention.
+- **Evidence:** TABLE_EVIDENCE, TYPOGRAPHIC_EVIDENCE
+- **Notes:** Excludes header row (legitimately different alignment). Requires table cell model IR extension (Track A).
+
+### BP-TABLE-005 — Trapped External Fonts
+- **Status:** proposed
+- **Source:** exemplar
+- **Severity:** error
+- **Risk:** safe
+- **Auto-fix:** yes (SET_TABLE_FONT)
+- **Type:** deterministic
+- **What it checks:** All table cell font families checked against the exemplar's approved table/body font
+- **Why it matters:** Tables pasted from Excel (Keep Source Formatting) always bring Calibri or Aptos, instantly breaking corporate brand typography.
+- **Evidence:** TABLE_EVIDENCE, TYPOGRAPHIC_EVIDENCE
+- **Notes:** Highly reliable with API access. Auto-fix bulk-updates all table text nodes. Requires table cell model IR extension (Track A).
+
+### BP-TABLE-006 — Empty Cell Without Explicit Notation
+- **Status:** proposed
+- **Source:** playbook
+- **Severity:** info
+- **Risk:** manual
+- **Auto-fix:** no
+- **Type:** heuristic
+- **What it checks:** Identifies completely blank cells within a table that otherwise contains data
+- **Why it matters:** In F100 finance decks, a blank cell is an audit risk — does it mean zero, missing data, or not applicable? Consulting standard: always use `—`, `0`, `NA`, or `N/A`.
+- **Evidence:** TABLE_EVIDENCE, TEXT_STRING_EVIDENCE
+- **Notes:** Heuristic — structural spacer columns and intentionally blank header cells may be false positives. Requires table cell model IR extension (Track A).
+
+### BP-TABLE-007 — Vertical Alignment Inconsistency
+- **Status:** proposed
+- **Source:** playbook
+- **Severity:** warn
+- **Risk:** safe
+- **Auto-fix:** yes (APPLY_MAJORITY_VERTICAL_ALIGN)
+- **Type:** heuristic
+- **What it checks:** Within each row, flags cells whose vertical alignment (top/middle/bottom) deviates from the row's majority
+- **Why it matters:** Mixed vertical alignment in a row looks jagged and unstructured, especially when adjacent cells have different text heights.
+- **Evidence:** TABLE_EVIDENCE, TYPOGRAPHIC_EVIDENCE
+- **Notes:** Evaluated per-row (header rows are often bottom-aligned while data rows are top-aligned). Requires table cell model IR extension (Track A).
 
 ---
 
@@ -558,6 +645,30 @@ Each rule follows this structure:
 ---
 
 ### Tier 3 — Nice to Have
+
+### BP-TABLE-008 — Zebra Striping Disruption
+- **Status:** proposed
+- **Source:** playbook
+- **Severity:** warn
+- **Risk:** manual
+- **Auto-fix:** no
+- **Type:** heuristic
+- **What it checks:** Detects alternating row fill color patterns, then flags adjacent rows sharing the same fill (pattern broken)
+- **Why it matters:** Inserting or deleting a row in a statically colored table breaks the zebra stripe, creating a thick block of one color.
+- **Evidence:** TABLE_EVIDENCE, COLOR_EVIDENCE
+- **Notes:** Engine must first recognize the repeating 1:1 pattern before flagging disruption. Auto-fix deferred — requires knowing which color is base vs. stripe. Requires table cell model IR extension (Track A).
+
+### BP-TABLE-009 — Over-Bolding in Data Rows
+- **Status:** proposed
+- **Source:** playbook
+- **Severity:** info
+- **Risk:** manual
+- **Auto-fix:** no
+- **Type:** heuristic
+- **What it checks:** Flags data rows (non-header, non-total) where more than 50% of text is bold
+- **Why it matters:** When everything is bold, nothing is bold. Overuse of bold in table data rows destroys visual hierarchy.
+- **Evidence:** TABLE_EVIDENCE, TYPOGRAPHIC_EVIDENCE
+- **Notes:** Requires distinguishing header/total rows from data rows (heuristic: first row = header, last row with sum/total keyword = total). Requires table cell model IR extension (Track A).
 
 ### BP-CHART-002 — Missing Chart Axis Labels or Units
 - **Status:** proposed
