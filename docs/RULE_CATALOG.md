@@ -419,6 +419,30 @@ Each rule follows this structure:
 
 ### Tier 1 — High Signal
 
+### BP-TYPO-011 — Title Terminal Punctuation
+- **Status:** proposed
+- **Source:** playbook
+- **Severity:** warn
+- **Risk:** safe
+- **Auto-fix:** yes (REMOVE_TERMINAL_PUNCTUATION)
+- **Type:** deterministic
+- **What it checks:** Scans the TITLE-role shape text for a trailing period
+- **Why it matters:** Standard consulting style: action titles don't end with periods. Common copy-paste error from Word docs.
+- **Evidence:** PLAYBOOK_EVIDENCE, TEXT_STRING_EVIDENCE
+- **Notes:** Question marks are acceptable exceptions ("Why did Q3 Revenue fall?"). Auto-fix trims the trailing period only. Buildable now.
+
+### BP-LAYOUT-008 — Horizontal Distribution Consistency
+- **Status:** proposed
+- **Source:** playbook
+- **Severity:** warn
+- **Risk:** caution
+- **Auto-fix:** yes (DISTRIBUTE_HORIZONTALLY)
+- **Type:** deterministic
+- **What it checks:** Groups 3+ shapes sharing the same Y-band and similar width/height; checks that horizontal gaps between them are equal within tolerance
+- **Why it matters:** 3- and 4-column layouts are ubiquitous in exec decks. A 4pt gap variance between columns looks rushed and breaks the grid.
+- **Evidence:** GEOMETRIC_EVIDENCE
+- **Notes:** Group similarity by Y-band overlap and aspect ratio. Auto-fix averages the gaps and repositions inner shapes. Caution risk — repositioning breaks intentional asymmetric layouts. Buildable now.
+
 ### BP-TYPO-009 — Bullet Punctuation Consistency
 - **Status:** proposed
 - **Source:** continuity
@@ -471,6 +495,30 @@ Each rule follows this structure:
 
 ### Tier 2 — Good to Have
 
+### BP-LAYOUT-009 — Slide Text Density
+- **Status:** proposed
+- **Source:** playbook
+- **Severity:** info
+- **Risk:** manual
+- **Auto-fix:** no
+- **Type:** deterministic
+- **What it checks:** Calculates total area of all text shape bounding boxes as a fraction of the safe-zone slide area; flags slides exceeding a configurable threshold (default 60%)
+- **Why it matters:** "Wall of text" slides violate cognitive load principles. Deterministic density flag lets the author decide whether to split — without needing content analysis.
+- **Evidence:** GEOMETRIC_EVIDENCE
+- **Notes:** Exclude image and chart shapes from area calculation. Safe-zone area = slide canvas minus standard margins. Threshold configurable in ToleranceConfig. Buildable now.
+
+### BP-TYPO-012 — Text Alignment Mismatch
+- **Status:** proposed
+- **Source:** exemplar
+- **Severity:** warn
+- **Risk:** safe
+- **Auto-fix:** yes (SET_TEXT_ALIGNMENT)
+- **Type:** deterministic
+- **What it checks:** Compares paragraph alignment (left/center/right/justified) against the exemplar for that role
+- **Why it matters:** A center-aligned body text box in a left-aligned deck creates immediate visual dissonance.
+- **Evidence:** EXEMPLAR_EVIDENCE, TYPOGRAPHIC_EVIDENCE
+- **Notes:** Blocked — `ParagraphSnapshot` has no `alignment` field. Needs IR extension before implementation.
+
 ### BP-TYPO-010 — Double Space Detection
 - **Status:** proposed
 - **Source:** playbook
@@ -494,6 +542,18 @@ Each rule follows this structure:
 - **Why it matters:** Charts pasted from Excel carry Microsoft's default blue/orange/gray palette, destroying the F100 brand system on every data slide.
 - **Evidence:** COLOR_EVIDENCE, CHART_EVIDENCE
 - **Notes:** Blocked — requires DeckSnapshot extension to read chart series properties. OOXML (`<c:chart>`) and Slides API both expose series colors. Same IR extension needed as TABLE-001/002.
+
+### BP-COLOR-004 — Shape Border Off Palette
+- **Status:** proposed
+- **Source:** playbook
+- **Severity:** warn
+- **Risk:** manual
+- **Auto-fix:** no
+- **Type:** deterministic
+- **What it checks:** Shape line/border color checked against the slide master palette; only evaluated when the shape has a visible border (thickness > 0)
+- **Why it matters:** Authors fix fill colors but forget the 1pt border — leaving a default Microsoft blue outline on a branded corporate shape.
+- **Evidence:** PLAYBOOK_EVIDENCE, COLOR_EVIDENCE
+- **Notes:** Blocked — `ShapeSnapshot` has no `lineColor` or `lineWidth` field. Needs IR extension. Companion to BP-COLOR-003.
 
 ---
 
