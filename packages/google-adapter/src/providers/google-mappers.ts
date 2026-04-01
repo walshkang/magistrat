@@ -1,5 +1,14 @@
-import type { DeckSnapshot, ParagraphAlignment, ShapeSnapshot, ShapeType } from "@magistrat/shared-types";
-import type { GoogleBridgePageElement, GoogleBridgePresentation } from "../bridge-types.js";
+import type {
+  CellBorders,
+  DeckSnapshot,
+  ParagraphAlignment,
+  ShapeSnapshot,
+  ShapeType,
+  TableCellSnapshot,
+  TableSnapshot,
+  VerticalAlignment
+} from "@magistrat/shared-types";
+import type { GoogleBridgePageElement, GoogleBridgePresentation, GoogleBridgeTable, GoogleBridgeTableCell } from "../bridge-types.js";
 
 export function mapPresentationToDeckSnapshot(presentation: GoogleBridgePresentation): DeckSnapshot {
   const slides = [...presentation.slides]
@@ -83,8 +92,62 @@ export function mapPageElement(element: GoogleBridgePageElement): ShapeSnapshot 
     inspectability: {
       typography: element.text?.inspectability?.typography ?? inferredTypographyInspectable,
       bullets: element.text?.inspectability?.bullets ?? paragraphs.length > 0
-    }
+    },
+    ...(element.table ? { table: mapTable(element.table) } : {})
   };
+}
+
+function mapTable(bridge: GoogleBridgeTable): TableSnapshot {
+  return {
+    rows: bridge.rows,
+    columns: bridge.columns,
+    cells: bridge.cells.map(mapTableCell)
+  };
+}
+
+function mapTableCell(cell: GoogleBridgeTableCell): TableCellSnapshot {
+  return {
+    rowIndex: cell.rowIndex,
+    columnIndex: cell.columnIndex,
+    ...(cell.fillColor ? { fillColor: normalizeColor(cell.fillColor) } : {}),
+    ...(cell.borders ? { borders: mapCellBorders(cell.borders) } : {}),
+    ...(normalizeAlignment(cell.textAlignment) ? { textAlignment: normalizeAlignment(cell.textAlignment)! } : {}),
+    ...(normalizeVerticalAlignment(cell.verticalAlignment) ? { verticalAlignment: normalizeVerticalAlignment(cell.verticalAlignment)! } : {}),
+    textRuns: (cell.textRuns ?? []).map((run) => ({
+      text: run.text,
+      fontFamily: run.fontFamily ?? "",
+      fontSizePt: run.fontSizePt ?? 0,
+      bold: run.bold ?? false,
+      italic: run.italic ?? false,
+      fontColor: normalizeColor(run.fontColor ?? "#000000"),
+      fontAlpha: run.fontAlpha ?? 1,
+      ...(run.proofingLanguage ? { proofingLanguage: run.proofingLanguage } : {})
+    })),
+    text: cell.text ?? ""
+  };
+}
+
+function normalizeVerticalAlignment(raw: string | undefined): VerticalAlignment | undefined {
+  if (!raw) return undefined;
+  const n = raw.toUpperCase();
+  if (n === "TOP") return "TOP";
+  if (n === "MIDDLE") return "MIDDLE";
+  if (n === "BOTTOM") return "BOTTOM";
+  return undefined;
+}
+
+function mapCellBorders(borders: GoogleBridgeTableCell["borders"]): CellBorders {
+  const result: CellBorders = {};
+  for (const edge of ["top", "bottom", "left", "right"] as const) {
+    const b = borders?.[edge];
+    if (b) {
+      result[edge] = {
+        ...(b.color ? { color: normalizeColor(b.color) } : {}),
+        ...(typeof b.width === "number" ? { width: b.width } : {})
+      };
+    }
+  }
+  return result;
 }
 
 function normalizeShapeType(rawType: string | undefined): ShapeType {

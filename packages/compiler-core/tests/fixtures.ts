@@ -46,8 +46,96 @@ export function createShape(overrides: Partial<ShapeSnapshot> = {}): ShapeSnapsh
     inspectability: overrides.inspectability ?? {
       typography: true,
       bullets: true
-    }
+    },
+    ...(overrides.table !== undefined ? { table: overrides.table } : {})
   };
+}
+
+export function createTableShape(overrides: Partial<ShapeSnapshot> = {}): ShapeSnapshot {
+  return createShape({
+    shapeType: "TABLE",
+    supportedForAnalysis: false,
+    textRuns: [],
+    paragraphs: [],
+    inspectability: { typography: false, bullets: false },
+    table: {
+      rows: 2,
+      columns: 2,
+      cells: [
+        {
+          rowIndex: 0,
+          columnIndex: 0,
+          fillColor: "#003366",
+          text: "Header 1",
+          textRuns: [
+            {
+              text: "Header 1",
+              fontFamily: "Aptos",
+              fontSizePt: 12,
+              bold: true,
+              italic: false,
+              fontColor: "#FFFFFF",
+              fontAlpha: 1
+            }
+          ],
+          textAlignment: "LEFT"
+        },
+        {
+          rowIndex: 0,
+          columnIndex: 1,
+          fillColor: "#003366",
+          text: "Header 2",
+          textRuns: [
+            {
+              text: "Header 2",
+              fontFamily: "Aptos",
+              fontSizePt: 12,
+              bold: true,
+              italic: false,
+              fontColor: "#FFFFFF",
+              fontAlpha: 1
+            }
+          ],
+          textAlignment: "LEFT"
+        },
+        {
+          rowIndex: 1,
+          columnIndex: 0,
+          text: "Data 1",
+          textRuns: [
+            {
+              text: "Data 1",
+              fontFamily: "Aptos",
+              fontSizePt: 12,
+              bold: false,
+              italic: false,
+              fontColor: "#000000",
+              fontAlpha: 1
+            }
+          ],
+          textAlignment: "LEFT"
+        },
+        {
+          rowIndex: 1,
+          columnIndex: 1,
+          text: "Data 2",
+          textRuns: [
+            {
+              text: "Data 2",
+              fontFamily: "Aptos",
+              fontSizePt: 12,
+              bold: false,
+              italic: false,
+              fontColor: "#000000",
+              fontAlpha: 1
+            }
+          ],
+          textAlignment: "RIGHT"
+        }
+      ]
+    },
+    ...overrides
+  });
 }
 
 export function createSlide(overrides: Partial<SlideSnapshot> = {}): SlideSnapshot {

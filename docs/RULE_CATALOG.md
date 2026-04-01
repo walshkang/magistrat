@@ -23,6 +23,12 @@ Extended IR with `ParagraphSnapshot.alignment` and `ShapeSnapshot.lineColor` / `
 - **BP-TYPO-012** — Text Alignment Mismatch
 - **BP-COLOR-004** — Shape Border Off Palette
 
+### Track A Slice 2 — Table Cell Model IR (2026-04-01)
+Extended IR with `TableSnapshot` and `TableCellSnapshot` on `ShapeSnapshot.table`. GAS bridge extracts table cell fill, borders, text, alignment; Office adapter performs best-effort table read (`text` + margins; `textRuns` deferred). Tests: `packages/compiler-core/tests/track-a-slice2.test.ts`, table mapping in `packages/google-adapter/tests/public-api.test.ts`. Unblocks:
+- **BP-TABLE-001** — Table Header Fill Color
+- **BP-TABLE-004** — Intra-Column Alignment Consistency
+- **BP-TABLE-005** — Trapped External Fonts
+
 ### Track A — Read API Extensions (unblocks blocked rules)
 Extend the existing Google and Office adapters to pull more fields from their respective APIs. No new permissions required — all data is already exposed. This is the right next step before Phase 7D.
 
@@ -516,7 +522,7 @@ Each rule follows this structure:
 ### Tier 1 — High Signal
 
 ### BP-TABLE-001 — Table Header Fill Color
-- **Status:** proposed
+- **Status:** active
 - **Source:** exemplar
 - **Severity:** error
 - **Risk:** manual
@@ -552,7 +558,7 @@ Each rule follows this structure:
 - **Notes:** APIs expose cell margins natively. Auto-fix is universally safe. Requires table cell model IR extension (Track A).
 
 ### BP-TABLE-004 — Intra-Column Alignment Consistency
-- **Status:** proposed
+- **Status:** active
 - **Source:** playbook
 - **Severity:** warn
 - **Risk:** safe
@@ -564,7 +570,7 @@ Each rule follows this structure:
 - **Notes:** Excludes header row (legitimately different alignment). Requires table cell model IR extension (Track A).
 
 ### BP-TABLE-005 — Trapped External Fonts
-- **Status:** proposed
+- **Status:** active
 - **Source:** exemplar
 - **Severity:** error
 - **Risk:** safe
@@ -717,6 +723,20 @@ Each rule follows this structure:
 
 **`PLAYBOOK_RULE_COUNT`:** 31 → 32 (+1 playbook-sourced; TYPO-012 is exemplar-only).
 
+### 2026-04-01 — Track A Slice 2 (table cell IR)
+
+**Implemented:**
+- **BP-TABLE-001** — Table header fill vs exemplar (`checks.ts`).
+- **BP-TABLE-004** — Intra-column horizontal alignment plurality vs outliers (`checks.ts`); patch op `APPLY_MAJORITY_ALIGNMENT`.
+- **BP-TABLE-005** — Table cell font vs body style map (`checks.ts`); patch op `SET_TABLE_FONT`.
+- **`TABLE_EVIDENCE`** in `shared-types`; `ShapeSnapshot.table` with `TableSnapshot` / `TableCellSnapshot`.
+
+**IR / adapters:** `ir.ts`, GAS `Code.gs` table branch, `google-adapter` bridge + mapper, `office-adapter` table read.
+
+**Tests:** `track-a-slice2.test.ts`; Google adapter TABLE mapping test.
+
+**`PLAYBOOK_RULE_COUNT`:** 32 → 33 (+1 playbook-sourced; BP-TABLE-001 and BP-TABLE-005 are exemplar-sourced).
+
 ---
 
 ### 2026-03-31 — Phase 8A Implementation
@@ -730,7 +750,7 @@ Each rule follows this structure:
 
 **Tests:** `packages/compiler-core/tests/phase8a-rules.test.ts` — 15 tests, all passing.
 
-**Blocked rules (require IR extension — deferred):** BP-TYPO-006 (text bounds), BP-TYPO-007 (rendered line breaks), BP-LAYOUT-005 (intrinsic image dimensions), BP-LAYOUT-006 (exemplar boundary scan), BP-HYGIENE-007 (config extension), BP-TABLE-001/002 (table cell model).
+**Blocked rules (require IR extension — deferred):** BP-TYPO-006 (text bounds), BP-TYPO-007 (rendered line breaks), BP-LAYOUT-005 (intrinsic image dimensions), BP-LAYOUT-006 (exemplar boundary scan), BP-HYGIENE-007 (config extension), BP-TABLE-002 (table border schema vs exemplar).
 
 ---
 

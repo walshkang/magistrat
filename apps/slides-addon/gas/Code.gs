@@ -133,6 +133,96 @@ function readPresentation() {
         } catch (e) {
           // Border not available on this shape type — skip
         }
+      } else if (el.getPageElementType() === SlidesApp.PageElementType.TABLE) {
+        var table = el.asTable();
+        var numRows = table.getNumRows();
+        var numCols = table.getNumColumns();
+        element.elementType = 'TABLE';
+        element.table = {
+          rows: numRows,
+          columns: numCols,
+          cells: [],
+        };
+
+        for (var r = 0; r < numRows; r++) {
+          for (var c = 0; c < numCols; c++) {
+            var cell = table.getCell(r, c);
+            var cellData = {
+              rowIndex: r,
+              columnIndex: c,
+              text: '',
+              textRuns: [],
+            };
+
+            try {
+              var cellFill = cell.getFill();
+              if (cellFill && cellFill.getSolidFill()) {
+                cellData.fillColor = cellFill.getSolidFill().getColor().asRgbColor().asHexString();
+              }
+            } catch (e) {
+              /* theme fill — skip */
+            }
+
+            try {
+              var cellText = cell.getText();
+              if (cellText) {
+                cellData.text = cellText.asString();
+                var cellInfo = extractTextInfo(cellText);
+                cellData.textRuns = cellInfo.runs;
+                if (
+                  cellInfo.paragraphs &&
+                  cellInfo.paragraphs.length > 0 &&
+                  cellInfo.paragraphs[0].alignment
+                ) {
+                  cellData.textAlignment = cellInfo.paragraphs[0].alignment;
+                }
+              }
+            } catch (e) {
+              /* no text */
+            }
+
+            try {
+              var vAlign = cell.getContentAlignment();
+              if (vAlign) {
+                var vStr = vAlign.toString();
+                if (vStr === 'TOP') cellData.verticalAlignment = 'TOP';
+                else if (vStr === 'MIDDLE') cellData.verticalAlignment = 'MIDDLE';
+                else if (vStr === 'BOTTOM') cellData.verticalAlignment = 'BOTTOM';
+              }
+            } catch (e) {
+              /* not available */
+            }
+
+            var edges = ['TOP', 'BOTTOM', 'LEFT', 'RIGHT'];
+            var edgeKeys = ['top', 'bottom', 'left', 'right'];
+            var borders = {};
+            for (var ei = 0; ei < edges.length; ei++) {
+              try {
+                var border = cell.getBorder(SlidesApp.BorderPosition[edges[ei]]);
+                if (border) {
+                  var bw = border.getWeight();
+                  var bData = { width: bw };
+                  try {
+                    var bFill = border.getLineFill();
+                    if (bFill && bFill.getSolidFill()) {
+                      bData.color = bFill.getSolidFill().getColor().asRgbColor().asHexString();
+                    }
+                  } catch (e2) {
+                    /* theme border color */
+                  }
+                  borders[edgeKeys[ei]] = bData;
+                }
+              } catch (e) {
+                /* border not available */
+              }
+            }
+            if (Object.keys(borders).length > 0) {
+              cellData.borders = borders;
+            }
+
+            element.table.cells.push(cellData);
+          }
+        }
       }
 
       elements.push(element);

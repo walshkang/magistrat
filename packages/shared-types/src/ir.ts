@@ -38,6 +38,45 @@ export interface ShapeInspectability {
   bullets: boolean;
 }
 
+export type VerticalAlignment = "TOP" | "MIDDLE" | "BOTTOM";
+
+export interface CellBorders {
+  top?: { color?: string; width?: number };
+  bottom?: { color?: string; width?: number };
+  left?: { color?: string; width?: number };
+  right?: { color?: string; width?: number };
+}
+
+export interface CellMargins {
+  top?: number;
+  bottom?: number;
+  left?: number;
+  right?: number;
+}
+
+export interface TableCellSnapshot {
+  rowIndex: number;
+  columnIndex: number;
+  /** Cell background fill color, hex #RRGGBB */
+  fillColor?: string;
+  borders?: CellBorders;
+  margins?: CellMargins;
+  /** Horizontal text alignment within the cell */
+  textAlignment?: ParagraphAlignment;
+  /** Vertical alignment of content within the cell */
+  verticalAlignment?: VerticalAlignment;
+  /** All text runs within this cell */
+  textRuns: TextRunSnapshot[];
+  /** Raw concatenated text content */
+  text: string;
+}
+
+export interface TableSnapshot {
+  rows: number;
+  columns: number;
+  cells: TableCellSnapshot[];
+}
+
 export interface ShapeSnapshot {
   objectId: string;
   name: string;
@@ -60,6 +99,8 @@ export interface ShapeSnapshot {
   supportedForAnalysis: boolean;
   autofitEnabled: boolean;
   inspectability: ShapeInspectability;
+  /** Table cell data when shapeType === "TABLE" */
+  table?: TableSnapshot | undefined;
 }
 
 export interface SlideSnapshot {

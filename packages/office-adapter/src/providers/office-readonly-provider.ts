@@ -1,4 +1,12 @@
-import type { DeckSnapshot, PatchOp, ShapeSnapshot, ShapeType } from "@magistrat/shared-types";
+import type {
+  CellMargins,
+  DeckSnapshot,
+  PatchOp,
+  ShapeSnapshot,
+  ShapeType,
+  TableCellSnapshot,
+  TableSnapshot
+} from "@magistrat/shared-types";
 import type {
   AdapterCapabilityRegistry,
   AdapterProvider,
@@ -37,6 +45,24 @@ interface ShapeCollectionLike {
   load(select: string): void;
 }
 
+interface OfficeTableLike {
+  load(select: string): void;
+  rowCount?: number;
+  columnCount?: number;
+  getCell?(row: number, column: number): OfficeTableCellLike;
+}
+
+interface OfficeTableCellLike {
+  load(select: string): void;
+  body?: { text?: string };
+  fill?: { foregroundColor?: string | null };
+  verticalAlignment?: string;
+  paddingTop?: number;
+  paddingBottom?: number;
+  paddingLeft?: number;
+  paddingRight?: number;
+}
+
 interface ShapeLike {
   id?: string;
   name?: string;
@@ -51,6 +77,7 @@ interface ShapeLike {
   fill?: { foregroundColor?: string | null } | null;
   lineFormat?: { color?: string | null; weight?: number | null } | null;
   textFrame?: TextFrameLike;
+  table?: OfficeTableLike;
   load(select: string): void;
 }
 
@@ -175,7 +202,10 @@ async function readDeckSnapshot(options: OfficeReadonlyProviderOptions): Promise
       }
 
       for (const entry of chunk) {
-        const shapeSnapshot = mapShape(entry);
+        let shapeSnapshot = mapShape(entry);
+        if (normalizeShapeType(entry.shape.type) === "TABLE") {
+          shapeSnapshot = await enrichTableShape(context, entry, shapeSnapshot);
+        }
         const slideShapes = shapesBySlide.get(entry.slide);
         if (slideShapes) {
           slideShapes.push(shapeSnapshot);
@@ -196,6 +226,85 @@ async function readDeckSnapshot(options: OfficeReadonlyProviderOptions): Promise
       }))
     };
   });
+}
+
+async function enrichTableShape(
+  context: ContextLike,
+  entry: ShapeEntry,
+  base: ShapeSnapshot
+): Promise<ShapeSnapshot> {
+  try {
+    const tableProp = entry.shape.table;
+    if (!tableProp || typeof tableProp.getCell !== "function") {
+      return base;
+    }
+    tableProp.load("rowCount,columnCount");
+    await context.sync();
+    const rowCount = typeof tableProp.rowCount === "number" ? tableProp.rowCount : 0;
+    const colCount = typeof tableProp.columnCount === "number" ? tableProp.columnCount : 0;
+    if (rowCount <= 0 || colCount <= 0) {
+      return base;
+    }
+
+    const tableData: TableCellSnapshot[] = [];
+    for (let r = 0; r < rowCount; r += 1) {
+      for (let c = 0; c < colCount; c += 1) {
+        try {
+          const cell = tableProp.getCell!(r, c);
+          cell.load("body/text,fill/foregroundColor,verticalAlignment,paddingTop,paddingBottom,paddingLeft,paddingRight");
+          await context.sync();
+
+          const cellSnap: TableCellSnapshot = {
+            rowIndex: r,
+            columnIndex: c,
+            text: cell.body?.text ?? "",
+            textRuns: []
+          };
+
+          try {
+            if (cell.fill?.foregroundColor) {
+              cellSnap.fillColor = normalizeColor(String(cell.fill.foregroundColor));
+            }
+          } catch {
+            /* not available */
+          }
+
+          try {
+            const va = cell.verticalAlignment;
+            if (va === "Top") cellSnap.verticalAlignment = "TOP";
+            else if (va === "Middle") cellSnap.verticalAlignment = "MIDDLE";
+            else if (va === "Bottom") cellSnap.verticalAlignment = "BOTTOM";
+          } catch {
+            /* not available */
+          }
+
+          try {
+            const margins: CellMargins = {};
+            if (typeof cell.paddingTop === "number") margins.top = cell.paddingTop;
+            if (typeof cell.paddingBottom === "number") margins.bottom = cell.paddingBottom;
+            if (typeof cell.paddingLeft === "number") margins.left = cell.paddingLeft;
+            if (typeof cell.paddingRight === "number") margins.right = cell.paddingRight;
+            if (Object.keys(margins).length > 0) cellSnap.margins = margins;
+          } catch {
+            /* not available */
+          }
+
+          tableData.push(cellSnap);
+        } catch {
+          /* cell read failed — skip */
+        }
+      }
+    }
+
+    const tableSnapshot: TableSnapshot = {
+      rows: rowCount,
+      columns: colCount,
+      cells: tableData
+    };
+    return { ...base, table: tableSnapshot };
+  } catch {
+    return base;
+  }
 }
 
 function mapShape(entry: ShapeEntry): ShapeSnapshot {

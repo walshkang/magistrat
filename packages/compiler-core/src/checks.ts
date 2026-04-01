@@ -305,6 +305,17 @@ export function runChecks(deck: DeckSnapshot, styleMap: StyleMap, tolerance?: To
     for (const finding of evaluatePerSlideLayoutFindings(slide, tol)) {
       pushFinding(finding);
     }
+
+    for (const shape of slide.shapes) {
+      if (shape.shapeType !== "TABLE" || !shape.table) {
+        continue;
+      }
+      const tableResult = evaluateTableFindings(slide.slideId, shape, styleMap, deck, exemplarSlideId);
+      for (const finding of tableResult.findings) {
+        pushFinding(finding);
+      }
+      suggestedPatches.push(...tableResult.patches);
+    }
   }
 
   const exemplarPalette = buildExemplarColorPalette(styleMap);
@@ -998,6 +1009,211 @@ function createNotAnalyzedFinding(
 
 function evidence(type: Evidence["type"], summary: string): Evidence {
   return { type, summary };
+}
+
+function dominantFillColorForCells(cells: Array<{ fillColor?: string }>): string | undefined {
+  const counts = new Map<string, number>();
+  for (const c of cells) {
+    if (typeof c.fillColor === "string" && c.fillColor.length > 0) {
+      const n = normalizeColorHex(c.fillColor);
+      counts.set(n, (counts.get(n) ?? 0) + 1);
+    }
+  }
+  if (counts.size === 0) {
+    return undefined;
+  }
+  let best: string | undefined;
+  let bestCount = 0;
+  for (const [color, count] of counts) {
+    if (count > bestCount) {
+      bestCount = count;
+      best = color;
+    }
+  }
+  return best;
+}
+
+function pluralityParagraphAlignment(values: ParagraphAlignment[]): ParagraphAlignment | undefined {
+  if (values.length < 2) {
+    return undefined;
+  }
+  const counts = new Map<ParagraphAlignment, number>();
+  for (const v of values) {
+    counts.set(v, (counts.get(v) ?? 0) + 1);
+  }
+  let best: ParagraphAlignment | undefined;
+  let bestCount = 0;
+  for (const [a, c] of counts) {
+    if (c > bestCount) {
+      bestCount = c;
+      best = a;
+    }
+  }
+  const winners = [...counts.entries()].filter(([, c]) => c === bestCount);
+  if (winners.length !== 1 || best === undefined) {
+    return undefined;
+  }
+  return best;
+}
+
+function evaluateTableFindings(
+  slideId: string,
+  shape: DeckSnapshot["slides"][number]["shapes"][number],
+  styleMap: StyleMap,
+  deck: DeckSnapshot,
+  exemplarSlideId: string
+): { findings: Finding[]; patches: PatchOp[] } {
+  const findings: Finding[] = [];
+  const patches: PatchOp[] = [];
+  if (shape.shapeType !== "TABLE" || !shape.table) {
+    return { findings, patches };
+  }
+
+  const table = shape.table;
+
+  const expectedFont = styleMap.BODY?.fontFamily ?? styleMap.BULLET_L1?.fontFamily;
+  if (expectedFont) {
+    const offendingCells: Array<{ row: number; col: number; fontFamily: string }> = [];
+    for (const cell of table.cells) {
+      for (const run of cell.textRuns) {
+        if (run.text.trim().length === 0) {
+          continue;
+        }
+        if (run.fontFamily.toLowerCase() !== expectedFont.toLowerCase()) {
+          offendingCells.push({ row: cell.rowIndex, col: cell.columnIndex, fontFamily: run.fontFamily });
+          break;
+        }
+      }
+    }
+    if (offendingCells.length > 0) {
+      const findingId = `finding-${stableHash([slideId, shape.objectId, "BP-TABLE-005"])}`;
+      const patchId = `patch-${stableHash([findingId, "SET_TABLE_FONT"])}`;
+      findings.push({
+        id: findingId,
+        ruleId: "BP-TABLE-005",
+        source: "exemplar",
+        slideId,
+        objectId: shape.objectId,
+        observed: { cells: offendingCells },
+        expected: { fontFamily: expectedFont },
+        evidence: [
+          evidence("TABLE_EVIDENCE", "Table cell text run font differs from body style map."),
+          evidence("TYPOGRAPHIC_EVIDENCE", "Off-brand fonts often enter via pasted tables.")
+        ],
+        confidence: 1,
+        risk: "safe",
+        severity: "error",
+        coverage: "ANALYZED",
+        suggestedPatchId: patchId
+      });
+      patches.push({
+        id: patchId,
+        op: "SET_TABLE_FONT",
+        target: {
+          slideId,
+          objectId: shape.objectId,
+          preconditionHash: stableHash(table)
+        },
+        fields: { fontFamily: expectedFont },
+        risk: "safe"
+      });
+    }
+  }
+
+  if (slideId !== exemplarSlideId) {
+    const exemplarSlide = deck.slides.find((s) => s.slideId === exemplarSlideId);
+    const exemplarTableShape = exemplarSlide?.shapes.find((s) => s.shapeType === "TABLE" && s.table);
+    if (exemplarTableShape?.table) {
+      const headerCells = exemplarTableShape.table.cells.filter((c) => c.rowIndex === 0);
+      const exemplarHeaderFill = dominantFillColorForCells(headerCells);
+      if (exemplarHeaderFill) {
+        const scannedHeaderCells = table.cells.filter((c) => c.rowIndex === 0);
+        const scannedHeaderFill = dominantFillColorForCells(scannedHeaderCells);
+        if (scannedHeaderFill !== undefined && scannedHeaderFill !== exemplarHeaderFill) {
+          findings.push({
+            id: `finding-${stableHash([slideId, shape.objectId, "BP-TABLE-001"])}`,
+            ruleId: "BP-TABLE-001",
+            source: "exemplar",
+            slideId,
+            objectId: shape.objectId,
+            observed: { headerFillColor: scannedHeaderFill },
+            expected: { headerFillColor: exemplarHeaderFill },
+            evidence: [
+              evidence("EXEMPLAR_EVIDENCE", "Exemplar table header fill differs from scanned table."),
+              evidence("TABLE_EVIDENCE", "Header row fill color mismatch.")
+            ],
+            confidence: 1,
+            risk: "manual",
+            severity: "error",
+            coverage: "ANALYZED"
+          });
+        }
+      }
+    }
+  }
+
+  const byColumn = new Map<number, typeof table.cells>();
+  for (const cell of table.cells) {
+    if (cell.rowIndex === 0) {
+      continue;
+    }
+    const arr = byColumn.get(cell.columnIndex) ?? [];
+    arr.push(cell);
+    byColumn.set(cell.columnIndex, arr);
+  }
+  for (const [colIndex, cells] of byColumn) {
+    if (cells.length < 2) {
+      continue;
+    }
+    const withAlign = cells.filter((c): c is typeof c & { textAlignment: ParagraphAlignment } => c.textAlignment !== undefined);
+    if (withAlign.length < 2) {
+      continue;
+    }
+    const majorityAlignment = pluralityParagraphAlignment(withAlign.map((c) => c.textAlignment));
+    if (!majorityAlignment) {
+      continue;
+    }
+    for (const cell of cells) {
+      if (cell.textAlignment === undefined) {
+        continue;
+      }
+      if (cell.textAlignment !== majorityAlignment) {
+        const findingId = `finding-${stableHash([slideId, shape.objectId, "BP-TABLE-004", colIndex, cell.rowIndex])}`;
+        const patchId = `patch-${stableHash([findingId, "APPLY_MAJORITY_ALIGNMENT"])}`;
+        findings.push({
+          id: findingId,
+          ruleId: "BP-TABLE-004",
+          source: "playbook",
+          slideId,
+          objectId: shape.objectId,
+          observed: { alignment: cell.textAlignment, row: cell.rowIndex, col: cell.columnIndex },
+          expected: { alignment: majorityAlignment, column: colIndex },
+          evidence: [
+            evidence("TABLE_EVIDENCE", "Intra-column alignment differs from column plurality."),
+            evidence("TYPOGRAPHIC_EVIDENCE", "Mixed alignment in table body column.")
+          ],
+          confidence: 1,
+          risk: "safe",
+          severity: "warn",
+          coverage: "ANALYZED",
+          suggestedPatchId: patchId
+        });
+        patches.push({
+          id: patchId,
+          op: "APPLY_MAJORITY_ALIGNMENT",
+          target: {
+            slideId,
+            objectId: shape.objectId,
+            preconditionHash: stableHash({ col: colIndex, row: cell.rowIndex })
+          },
+          fields: { alignment: majorityAlignment, columnIndex: colIndex },
+          risk: "safe"
+        });
+      }
+    }
+  }
+
+  return { findings, patches };
 }
 
 interface EvaluateInput {

@@ -148,6 +148,68 @@ describe("google adapter public api", () => {
     expect(snapshot.slides[0]?.slideId).toBe("slide-1");
   });
 
+  it("maps TABLE bridge element with table payload to ShapeSnapshot.table", async () => {
+    const presentation = createBasePresentation();
+    presentation.slides[0]!.pageElements.push({
+      objectId: "table-1",
+      name: "Table",
+      elementType: "TABLE",
+      visible: true,
+      grouped: false,
+      zIndex: 2,
+      geometry: {
+        left: 100,
+        top: 120,
+        width: 400,
+        height: 200,
+        rotation: 0
+      },
+      table: {
+        rows: 1,
+        columns: 1,
+        cells: [
+          {
+            rowIndex: 0,
+            columnIndex: 0,
+            fillColor: "#aabbcc",
+            text: "Cell",
+            textAlignment: "LEFT",
+            verticalAlignment: "MIDDLE",
+            textRuns: [
+              {
+                text: "Cell",
+                fontFamily: "Aptos",
+                fontSizePt: 11,
+                bold: false,
+                italic: false,
+                fontColor: "#112233",
+                fontAlpha: 1
+              }
+            ],
+            borders: {
+              top: { width: 1, color: "#001122" }
+            }
+          }
+        ]
+      }
+    });
+    const bridge = createMutableBridge(presentation);
+    setGoogleSlidesBridgeForTests(bridge.api);
+
+    const snapshot = await readDeckSnapshot();
+    const tableShape = snapshot.slides[0]?.shapes.find((s) => s.objectId === "table-1");
+    expect(tableShape?.shapeType).toBe("TABLE");
+    expect(tableShape?.table?.rows).toBe(1);
+    expect(tableShape?.table?.columns).toBe(1);
+    const cell = tableShape?.table?.cells[0];
+    expect(cell?.text).toBe("Cell");
+    expect(cell?.fillColor).toBe("#AABBCC");
+    expect(cell?.textAlignment).toBe("LEFT");
+    expect(cell?.verticalAlignment).toBe("MIDDLE");
+    expect(cell?.borders?.top?.color).toBe("#001122");
+    expect(cell?.borders?.top?.width).toBe(1);
+  });
+
   it("maps bridge paragraph alignment and shape border fields to the IR snapshot", async () => {
     const presentation = createBasePresentation();
     const el = presentation.slides[0]!.pageElements[0]!;

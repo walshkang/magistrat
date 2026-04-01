@@ -13,7 +13,9 @@ export const PATCH_OP_VALUES = [
   "MASTER_LAYOUT_CHANGES",
   "BREAK_GROUP",
   "NORMALIZE_LANGUAGE_TAGS",
-  "SET_TEXT_ALIGNMENT"
+  "SET_TEXT_ALIGNMENT",
+  "SET_TABLE_FONT",
+  "APPLY_MAJORITY_ALIGNMENT"
 ] as const;
 
 export type PatchOpType = (typeof PATCH_OP_VALUES)[number];

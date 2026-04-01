@@ -25,6 +25,33 @@ export interface GoogleBridgeTextRun {
   proofingLanguage?: string;
 }
 
+export interface GoogleBridgeCellBorder {
+  color?: string;
+  width?: number;
+}
+
+export interface GoogleBridgeTableCell {
+  rowIndex: number;
+  columnIndex: number;
+  fillColor?: string;
+  borders?: {
+    top?: GoogleBridgeCellBorder;
+    bottom?: GoogleBridgeCellBorder;
+    left?: GoogleBridgeCellBorder;
+    right?: GoogleBridgeCellBorder;
+  };
+  textAlignment?: string;
+  verticalAlignment?: string;
+  textRuns?: GoogleBridgeTextRun[];
+  text?: string;
+}
+
+export interface GoogleBridgeTable {
+  rows: number;
+  columns: number;
+  cells: GoogleBridgeTableCell[];
+}
+
 export interface GoogleBridgeParagraph {
   level: number;
   bulletIndent?: number;
@@ -63,6 +90,7 @@ export interface GoogleBridgePageElement {
     };
     autofitEnabled?: boolean;
   };
+  table?: GoogleBridgeTable;
 }
 
 export interface GoogleBridgeSlide {
