@@ -52,6 +52,25 @@ export interface GoogleBridgeTable {
   cells: GoogleBridgeTableCell[];
 }
 
+export interface GoogleBridgeChartSeries {
+  index: number;
+  color?: string;
+  type?: string;
+}
+
+export interface GoogleBridgeChartAxis {
+  position?: string;
+  title?: string;
+}
+
+export interface GoogleBridgeChart {
+  chartType?: string;
+  series: GoogleBridgeChartSeries[];
+  axes: GoogleBridgeChartAxis[];
+  hasDataLabels?: boolean;
+  spreadsheetId?: string;
+}
+
 export interface GoogleBridgeParagraph {
   level: number;
   bulletIndent?: number;
@@ -91,6 +110,7 @@ export interface GoogleBridgePageElement {
     autofitEnabled?: boolean;
   };
   table?: GoogleBridgeTable;
+  chart?: GoogleBridgeChart;
   /** Pixel width from image binary header (GAS bridge) */
   intrinsicWidthPx?: number;
   /** Pixel height from image binary header (GAS bridge) */

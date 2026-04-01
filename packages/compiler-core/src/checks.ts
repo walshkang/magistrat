@@ -123,6 +123,7 @@ export function runChecks(deck: DeckSnapshot, styleMap: StyleMap, tolerance?: To
 
   const dominantProofingLanguage = computeDominantProofingLanguage(deck);
   const exemplarSlideId = resolveExemplarSlideId(deck);
+  const exemplarPalette = buildExemplarColorPalette(styleMap);
 
   for (const slide of deck.slides) {
     for (const shape of slide.shapes) {
@@ -329,9 +330,15 @@ export function runChecks(deck: DeckSnapshot, styleMap: StyleMap, tolerance?: To
       }
       suggestedPatches.push(...imageResult.patches);
     }
+
+    for (const shape of slide.shapes) {
+      if (shape.shapeType !== "CHART" || !shape.chart) continue;
+      for (const finding of evaluateChartFindings(slide.slideId, shape, exemplarPalette)) {
+        pushFinding(finding);
+      }
+    }
   }
 
-  const exemplarPalette = buildExemplarColorPalette(styleMap);
   if (exemplarPalette.size > 0) {
     for (const slide of deck.slides) {
       for (const shape of slide.shapes) {
@@ -1468,6 +1475,77 @@ function evaluateTableFindings(
   }
 
   return { findings, patches };
+}
+
+function evaluateChartFindings(
+  slideId: string,
+  shape: DeckSnapshot["slides"][number]["shapes"][number],
+  exemplarPalette: Set<string>
+): Finding[] {
+  const findings: Finding[] = [];
+  if (shape.shapeType !== "CHART" || !shape.chart) return findings;
+  const chart = shape.chart;
+
+  // BP-CHART-001 — Series Color Off-Palette
+  if (exemplarPalette.size > 0 && chart.series.length > 0) {
+    const offPalette = chart.series
+      .filter((s) => s.color && !exemplarPalette.has(normalizeColorHex(s.color)))
+      .map((s) => ({ index: s.index, color: s.color! }));
+    if (offPalette.length > 0) {
+      findings.push({
+        id: `finding-${stableHash([slideId, shape.objectId, "BP-CHART-001"])}`,
+        ruleId: "BP-CHART-001",
+        source: "playbook",
+        slideId,
+        objectId: shape.objectId,
+        observed: { offPaletteColors: offPalette },
+        expected: { palette: [...exemplarPalette].sort((a, b) => a.localeCompare(b)) },
+        evidence: [
+          evidence("COLOR_EVIDENCE", "Chart series colors are not in the exemplar style palette."),
+          evidence("CHART_EVIDENCE", "Off-palette chart colors often come from pasted Excel charts with default Microsoft palette.")
+        ],
+        confidence: 1,
+        risk: "manual",
+        severity: "error",
+        coverage: "ANALYZED"
+      });
+    }
+  }
+
+  // BP-CHART-002 — Missing Axis Labels or Units
+  if (chart.chartType && chart.chartType !== "PIE") {
+    const issues: string[] = [];
+    const yAxis = chart.axes.find((a) =>
+      a.position === "LEFT_AXIS" || a.position === "RIGHT_AXIS"
+    );
+    if (!yAxis || !yAxis.title || yAxis.title.trim() === "") {
+      issues.push("missing_y_axis_title");
+    }
+    if (chart.hasDataLabels !== true && issues.includes("missing_y_axis_title")) {
+      issues.push("no_data_labels");
+    }
+    if (issues.length > 0) {
+      findings.push({
+        id: `finding-${stableHash([slideId, shape.objectId, "BP-CHART-002"])}`,
+        ruleId: "BP-CHART-002",
+        source: "playbook",
+        slideId,
+        objectId: shape.objectId,
+        observed: { issues, chartType: chart.chartType },
+        expected: { yAxisTitle: true, dataLabels: true },
+        evidence: [
+          evidence("CHART_EVIDENCE", "Chart is missing Y-axis title or data labels."),
+          evidence("TEXT_STRING_EVIDENCE", "Naked numbers violate Tufte's core principle — viewers will ask 'Is this thousands or millions?'")
+        ],
+        confidence: 0.8,
+        risk: "manual",
+        severity: "warn",
+        coverage: "ANALYZED"
+      });
+    }
+  }
+
+  return findings;
 }
 
 // Extracts dominant border color per edge position across all cells

@@ -36,6 +36,15 @@ Four additional table rules using the Slice 2 IR. Tests: `packages/compiler-core
 - **BP-TABLE-006** — Empty Cell Without Explicit Notation
 - **BP-TABLE-009** — Over-Bolding in Data Rows
 
+### Track A Slice 4 — Chart Series IR (2026-04-01)
+Extended IR with `ChartSnapshot` on `ShapeSnapshot.chart`.
+GAS bridge uses Advanced Sheets Service to read chart spec (series colors, axis titles, data label presence).
+Office adapter: chart data not available via Office.js (graceful skip).
+Requires `Sheets` Advanced Service enabled in `appsscript.json`.
+Unblocks:
+- **BP-CHART-001** — Chart Series Color Off-Palette
+- **BP-CHART-002** — Missing Chart Axis Labels or Units
+
 ### Track A — Read API Extensions (unblocks blocked rules)
 Extend the existing Google and Office adapters to pull more fields from their respective APIs. No new permissions required — all data is already exposed. This is the right next step before Phase 7D.
 
@@ -629,16 +638,16 @@ Each rule follows this structure:
 - **Notes:** Dominant alignment per shape (majority of paragraphs); skips when host omits alignment (e.g. Office read path) or style map has no alignment token. Apply for `SET_TEXT_ALIGNMENT` not implemented in host adapters yet (suggestion-only).
 
 ### BP-CHART-001 — Chart Series Color Off-Palette
-- **Status:** proposed
+- **Status:** active
 - **Source:** playbook
 - **Severity:** error
 - **Risk:** manual
 - **Auto-fix:** no
 - **Type:** deterministic
-- **What it checks:** Fill colors of chart data series (bars, pie slices, lines) checked against the slide master or exemplar color palette
+- **What it checks:** Fill colors of chart data series (bars, pie slices, lines) checked against the exemplar color palette (unique fontColor + fillColor values from style map)
 - **Why it matters:** Charts pasted from Excel carry Microsoft's default blue/orange/gray palette, destroying the F100 brand system on every data slide.
-- **Evidence:** COLOR_EVIDENCE, CHART_EVIDENCE
-- **Notes:** Blocked — requires DeckSnapshot extension to read chart series properties. OOXML (`<c:chart>`) and Slides API both expose series colors. Same IR extension needed as TABLE-001/002.
+- **Evidence:** CHART_EVIDENCE
+- **Notes:** Skips series with no color defined. Skips when exemplar palette is empty. GAS reads series colors via Sheets Advanced Service (SheetsChart → spreadsheetId + chartId → Sheets.Spreadsheets.get → chartSpec).
 
 ### BP-COLOR-004 — Shape Border Off Palette
 - **Status:** active
@@ -681,16 +690,16 @@ Each rule follows this structure:
 - **Notes:** Requires distinguishing header/total rows from data rows (heuristic: first row = header, last row with sum/total keyword = total). Requires table cell model IR extension (Track A).
 
 ### BP-CHART-002 — Missing Chart Axis Labels or Units
-- **Status:** proposed
+- **Status:** active
 - **Source:** playbook
 - **Severity:** warn
 - **Risk:** manual
 - **Auto-fix:** no
 - **Type:** heuristic
-- **What it checks:** Flags column/line/scatter charts that lack a Y-axis title, or whose data labels contain no recognizable unit token (`$`, `%`, `M`, `B`, `K`)
+- **What it checks:** Flags BAR/LINE/SCATTER/AREA/COMBO charts missing a Y-axis title (LEFT_AXIS or RIGHT_AXIS with non-empty title). Also flags absence of data labels as a secondary issue.
 - **Why it matters:** "Naked numbers" violate Tufte's core principle. Board members will ask "Is this thousands or millions?" — every time.
-- **Evidence:** CHART_EVIDENCE, TEXT_STRING_EVIDENCE
-- **Notes:** Blocked — requires chart metadata extraction. False positives likely for index scores or ratios; manual review required.
+- **Evidence:** CHART_EVIDENCE
+- **Notes:** Skips PIE/DOUGHNUT charts (no axes). Skips shapes with no chartType. Issues array in observed contains "missing_y_axis_title" and/or "no_data_labels".
 
 ---
 
@@ -758,6 +767,23 @@ Office adapter: best-effort via `getBase64Image()` and header parsing.
 **Tests:** `track-a-slice3.test.ts`; Google adapter IMAGE mapping test.
 
 **`PLAYBOOK_RULE_COUNT`:** 33 → 34 (+1 playbook-sourced; BP-LAYOUT-005).
+
+### 2026-04-01 — Track A Slice 4 — Chart Series & Axis Metadata
+
+Extended IR with `ChartSnapshot` (`ChartSeriesSnapshot`, `ChartAxisSnapshot`) on `ShapeSnapshot.chart`.
+GAS bridge extracts chart data via Sheets Advanced Service: `SheetsChart.getSpreadsheetId()` + `.getChartId()` → `Sheets.Spreadsheets.get` → `chartSpec.basicChart`. Handles PIE charts separately (no series colors available). Requires `sheets` Advanced Service enabled in `appsscript.json`.
+
+**Unblocks:**
+
+- **BP-CHART-001** — Chart Series Color Off-Palette (error): series colors checked against exemplar palette.
+- **BP-CHART-002** — Missing Chart Axis Labels (warn): flags BAR/LINE/SCATTER/AREA/COMBO charts missing Y-axis title or data labels. Skips PIE/DOUGHNUT.
+- **Evidence:** `CHART_EVIDENCE` in `shared-types`.
+
+**IR / adapters:** `ir.ts` (ChartSnapshot types), GAS `Code.gs` SHEETS_CHART branch, `google-adapter` bridge + mapper, `appsscript.json` Sheets service. Office adapter: no chart extraction (Office.js API doesn't expose chart series data).
+
+**Tests:** `track-a-slice4.test.ts` (10 tests); fixture helper `createChartShape()`.
+
+**`PLAYBOOK_RULE_COUNT`:** 34 → 39 (+5 playbook-sourced: BP-TABLE-002, BP-TABLE-006, BP-TABLE-007, BP-TABLE-009, BP-CHART-001).
 
 ---
 

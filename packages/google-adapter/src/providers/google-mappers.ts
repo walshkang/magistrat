@@ -1,5 +1,6 @@
 import type {
   CellBorders,
+  ChartSnapshot,
   DeckSnapshot,
   ImageMetadata,
   ParagraphAlignment,
@@ -9,7 +10,7 @@ import type {
   TableSnapshot,
   VerticalAlignment
 } from "@magistrat/shared-types";
-import type { GoogleBridgePageElement, GoogleBridgePresentation, GoogleBridgeTable, GoogleBridgeTableCell } from "../bridge-types.js";
+import type { GoogleBridgeChart, GoogleBridgePageElement, GoogleBridgePresentation, GoogleBridgeTable, GoogleBridgeTableCell } from "../bridge-types.js";
 
 export function mapPresentationToDeckSnapshot(presentation: GoogleBridgePresentation): DeckSnapshot {
   const slides = [...presentation.slides]
@@ -106,7 +107,25 @@ export function mapPageElement(element: GoogleBridgePageElement): ShapeSnapshot 
       bullets: element.text?.inspectability?.bullets ?? paragraphs.length > 0
     },
     ...(element.table ? { table: mapTable(element.table) } : {}),
-    ...(imageMetadata ? { imageMetadata } : {})
+    ...(imageMetadata ? { imageMetadata } : {}),
+    ...(element.chart ? { chart: mapChart(element.chart) } : {})
+  };
+}
+
+function mapChart(bridge: GoogleBridgeChart): ChartSnapshot {
+  return {
+    ...(bridge.chartType ? { chartType: bridge.chartType } : {}),
+    series: bridge.series.map((s) => ({
+      index: s.index,
+      ...(s.color ? { color: normalizeColor(s.color) } : {}),
+      ...(s.type ? { type: s.type } : {})
+    })),
+    axes: bridge.axes.map((a) => ({
+      ...(a.position ? { position: a.position } : {}),
+      ...(a.title ? { title: a.title } : {})
+    })),
+    ...(typeof bridge.hasDataLabels === "boolean" ? { hasDataLabels: bridge.hasDataLabels } : {}),
+    ...(bridge.spreadsheetId ? { spreadsheetId: bridge.spreadsheetId } : {})
   };
 }
 

@@ -48,7 +48,8 @@ export function createShape(overrides: Partial<ShapeSnapshot> = {}): ShapeSnapsh
       bullets: true
     },
     ...(overrides.table !== undefined ? { table: overrides.table } : {}),
-    ...(overrides.imageMetadata !== undefined ? { imageMetadata: overrides.imageMetadata } : {})
+    ...(overrides.imageMetadata !== undefined ? { imageMetadata: overrides.imageMetadata } : {}),
+    ...(overrides.chart !== undefined ? { chart: overrides.chart } : {})
   };
 }
 
@@ -156,6 +157,29 @@ export function createImageShape(overrides: Partial<ShapeSnapshot> = {}): ShapeS
     imageMetadata: {
       intrinsicWidth: 300,
       intrinsicHeight: 225
+    },
+    ...overrides
+  });
+}
+
+export function createChartShape(overrides: Partial<ShapeSnapshot> = {}): ShapeSnapshot {
+  return createShape({
+    shapeType: "CHART",
+    supportedForAnalysis: false,
+    textRuns: [],
+    paragraphs: [],
+    inspectability: { typography: false, bullets: false },
+    chart: {
+      chartType: "BAR",
+      series: [
+        { index: 0, color: "#4285F4" },
+        { index: 1, color: "#EA4335" },
+      ],
+      axes: [
+        { position: "BOTTOM_AXIS", title: "Quarter" },
+        { position: "LEFT_AXIS", title: "Revenue ($M)" },
+      ],
+      hasDataLabels: false,
     },
     ...overrides
   });

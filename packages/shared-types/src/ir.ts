@@ -87,6 +87,30 @@ export interface ImageMetadata {
   mimeType?: string;
 }
 
+export interface ChartSeriesSnapshot {
+  index: number;
+  /** Series fill color, hex #RRGGBB */
+  color?: string;
+  /** Series type if available (bar, line, area, etc.) */
+  type?: string;
+}
+
+export interface ChartAxisSnapshot {
+  /** Axis position: BOTTOM_AXIS, LEFT_AXIS, RIGHT_AXIS */
+  position?: string;
+  /** Axis title text, if present */
+  title?: string;
+}
+
+export interface ChartSnapshot {
+  /** Chart type: BAR, LINE, AREA, PIE, SCATTER, COMBO, etc. */
+  chartType?: string;
+  series: ChartSeriesSnapshot[];
+  axes: ChartAxisSnapshot[];
+  hasDataLabels?: boolean;
+  spreadsheetId?: string;
+}
+
 export interface ShapeSnapshot {
   objectId: string;
   name: string;
@@ -113,6 +137,8 @@ export interface ShapeSnapshot {
   table?: TableSnapshot | undefined;
   /** Intrinsic image dimensions when shapeType === "IMAGE" */
   imageMetadata?: ImageMetadata | undefined;
+  /** Chart metadata when shapeType === "CHART" */
+  chart?: ChartSnapshot | undefined;
 }
 
 export interface SlideSnapshot {

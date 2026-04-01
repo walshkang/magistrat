@@ -223,6 +223,87 @@ function readPresentation() {
             element.table.cells.push(cellData);
           }
         }
+      } else if (el.getPageElementType() === SlidesApp.PageElementType.SHEETS_CHART) {
+        var sheetsChart = el.asSheetsChart();
+        element.elementType = 'CHART';
+        try {
+          var spreadsheetId = sheetsChart.getSpreadsheetId();
+          var chartId = sheetsChart.getChartId();
+          element.chart = {
+            spreadsheetId: spreadsheetId,
+            series: [],
+            axes: [],
+          };
+          try {
+            var spreadsheet = Sheets.Spreadsheets.get(spreadsheetId, {
+              fields: 'sheets.charts',
+            });
+            var chartSpec = null;
+            if (spreadsheet && spreadsheet.sheets) {
+              for (var si = 0; si < spreadsheet.sheets.length; si++) {
+                var sheetObj = spreadsheet.sheets[si];
+                if (sheetObj.charts) {
+                  for (var ci = 0; ci < sheetObj.charts.length; ci++) {
+                    if (sheetObj.charts[ci].chartId === chartId) {
+                      chartSpec = sheetObj.charts[ci].spec;
+                      break;
+                    }
+                  }
+                }
+                if (chartSpec) break;
+              }
+            }
+            if (chartSpec && chartSpec.basicChart) {
+              element.chart.chartType = chartSpec.basicChart.chartType;
+              if (chartSpec.basicChart.series) {
+                for (var idx = 0; idx < chartSpec.basicChart.series.length; idx++) {
+                  var s = chartSpec.basicChart.series[idx];
+                  var seriesData = { index: idx };
+                  var seriesColor = s.colorStyle || s.color;
+                  if (seriesColor && seriesColor.rgbColor) {
+                    var rgb = seriesColor.rgbColor;
+                    var r = Math.round((rgb.red || 0) * 255);
+                    var g = Math.round((rgb.green || 0) * 255);
+                    var b = Math.round((rgb.blue || 0) * 255);
+                    seriesData.color =
+                      '#' +
+                      ('0' + r.toString(16)).slice(-2) +
+                      ('0' + g.toString(16)).slice(-2) +
+                      ('0' + b.toString(16)).slice(-2);
+                  }
+                  if (s.type) {
+                    seriesData.type = s.type;
+                  }
+                  element.chart.series.push(seriesData);
+                }
+                var anyLabels = false;
+                for (var dli = 0; dli < chartSpec.basicChart.series.length; dli++) {
+                  var dl = chartSpec.basicChart.series[dli].dataLabel;
+                  if (dl && dl.type && dl.type !== 'NONE') {
+                    anyLabels = true;
+                    break;
+                  }
+                }
+                element.chart.hasDataLabels = anyLabels;
+              }
+              if (chartSpec.basicChart.axis) {
+                for (var ai = 0; ai < chartSpec.basicChart.axis.length; ai++) {
+                  var axis = chartSpec.basicChart.axis[ai];
+                  element.chart.axes.push({
+                    position: axis.position,
+                    title: axis.title || undefined,
+                  });
+                }
+              }
+            } else if (chartSpec && chartSpec.pieChart) {
+              element.chart.chartType = 'PIE';
+            }
+          } catch (e) {
+            /* Sheets Advanced Service not available or permission error */
+          }
+        } catch (e) {
+          element.chart = undefined;
+        }
       } else if (el.getPageElementType() === SlidesApp.PageElementType.IMAGE) {
         var image = el.asImage();
         element.elementType = 'IMAGE';

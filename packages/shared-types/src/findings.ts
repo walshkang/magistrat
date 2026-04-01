@@ -11,7 +11,8 @@ export const EVIDENCE_TYPES = [
   "COLOR_EVIDENCE",
   "TEXT_STRING_EVIDENCE",
   "TABLE_EVIDENCE",
-  "MEDIA_METADATA"
+  "MEDIA_METADATA",
+  "CHART_EVIDENCE"
 ] as const;
 
 export type EvidenceType = (typeof EVIDENCE_TYPES)[number];

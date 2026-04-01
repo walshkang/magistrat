@@ -218,6 +218,20 @@ const RULE_TRANSLATORS: Record<string, RuleTranslator> = {
     riskLabel: "Manual only"
   }),
 
+  "BP-CHART-001": () => ({
+    title: "Chart series colors are off-palette",
+    description: "Chart data series use colors not found in the exemplar style palette — likely pasted from Excel.",
+    actionLabel: null,
+    riskLabel: "Manual only"
+  }),
+
+  "BP-CHART-002": () => ({
+    title: "Chart is missing axis labels or data labels",
+    description: "Charts without axis titles or data labels leave viewers guessing units. Add a Y-axis title or enable data labels.",
+    actionLabel: null,
+    riskLabel: "Manual only"
+  }),
+
   "BP-BULLET-001": (f) => ({
     title: `${roleLabel(f.role)} bullet indent does not match exemplar`,
     description: `Expected indent ${num(f.expected.bulletIndent)}pt / hanging ${num(f.expected.bulletHanging)}pt, found ${num(f.observed.bulletIndent)}pt / ${num(f.observed.bulletHanging)}pt.`,
