@@ -10,7 +10,9 @@ import type {
   RoleV1,
   RoleStyleTokens,
   StyleMap,
-  ToleranceConfig
+  TableCellSnapshot,
+  ToleranceConfig,
+  VerticalAlignment
 } from "@magistrat/shared-types";
 import { defaultToleranceConfig, getFontSizeTolerance, ROLE_V1_VALUES } from "@magistrat/shared-types";
 import { runContinuityChecks } from "./continuity.js";
@@ -315,6 +317,17 @@ export function runChecks(deck: DeckSnapshot, styleMap: StyleMap, tolerance?: To
         pushFinding(finding);
       }
       suggestedPatches.push(...tableResult.patches);
+    }
+
+    for (const shape of slide.shapes) {
+      if (shape.shapeType !== "IMAGE" || !shape.imageMetadata) {
+        continue;
+      }
+      const imageResult = evaluateImageAspectRatioFindings(slide.slideId, shape);
+      for (const finding of imageResult.findings) {
+        pushFinding(finding);
+      }
+      suggestedPatches.push(...imageResult.patches);
     }
   }
 
@@ -1056,6 +1069,87 @@ function pluralityParagraphAlignment(values: ParagraphAlignment[]): ParagraphAli
   return best;
 }
 
+function evaluateImageAspectRatioFindings(
+  slideId: string,
+  shape: DeckSnapshot["slides"][number]["shapes"][number]
+): { findings: Finding[]; patches: PatchOp[] } {
+  const findings: Finding[] = [];
+  const patches: PatchOp[] = [];
+  if (shape.shapeType !== "IMAGE" || !shape.imageMetadata) {
+    return { findings, patches };
+  }
+
+  const intrinsic = shape.imageMetadata;
+  const rendered = shape.geometry;
+
+  if (
+    intrinsic.intrinsicWidth <= 0 ||
+    intrinsic.intrinsicHeight <= 0 ||
+    rendered.width <= 0 ||
+    rendered.height <= 0
+  ) {
+    return { findings, patches };
+  }
+
+  const intrinsicRatio = intrinsic.intrinsicWidth / intrinsic.intrinsicHeight;
+  const renderedRatio = rendered.width / rendered.height;
+  const DISTORTION_THRESHOLD = 0.01;
+
+  if (Math.abs(intrinsicRatio - renderedRatio) <= DISTORTION_THRESHOLD) {
+    return { findings, patches };
+  }
+
+  const correctedHeight = rendered.width / intrinsicRatio;
+  const findingId = `finding-${stableHash([slideId, shape.objectId, "BP-LAYOUT-005"])}`;
+  const patchId = `patch-${stableHash([findingId, "RESTORE_ASPECT_RATIO"])}`;
+
+  findings.push({
+    id: findingId,
+    ruleId: "BP-LAYOUT-005",
+    source: "playbook",
+    slideId,
+    objectId: shape.objectId,
+    observed: {
+      renderedWidth: rendered.width,
+      renderedHeight: rendered.height,
+      renderedRatio: Math.round(renderedRatio * 1000) / 1000,
+      intrinsicRatio: Math.round(intrinsicRatio * 1000) / 1000
+    },
+    expected: {
+      aspectRatio: Math.round(intrinsicRatio * 1000) / 1000
+    },
+    evidence: [
+      evidence(
+        "GEOMETRIC_EVIDENCE",
+        `Rendered aspect ratio ${renderedRatio.toFixed(3)} differs from intrinsic ${intrinsicRatio.toFixed(3)}`
+      ),
+      evidence(
+        "MEDIA_METADATA",
+        `Original image ~${Math.round(intrinsic.intrinsicWidth / 0.75)}×${Math.round(intrinsic.intrinsicHeight / 0.75)}px (96 DPI assumption)`
+      )
+    ],
+    confidence: 1,
+    risk: "safe",
+    severity: "error",
+    coverage: "ANALYZED",
+    suggestedPatchId: patchId
+  });
+
+  patches.push({
+    id: patchId,
+    op: "RESTORE_ASPECT_RATIO",
+    target: {
+      slideId,
+      objectId: shape.objectId,
+      preconditionHash: stableHash(shape.geometry)
+    },
+    fields: { height: correctedHeight },
+    risk: "safe"
+  });
+
+  return { findings, patches };
+}
+
 function evaluateTableFindings(
   slideId: string,
   shape: DeckSnapshot["slides"][number]["shapes"][number],
@@ -1213,7 +1307,234 @@ function evaluateTableFindings(
     }
   }
 
+  // BP-TABLE-002 — Table Border Color Consistency (exemplar)
+  if (slideId !== exemplarSlideId) {
+    const exemplarSlide = deck.slides.find((s) => s.slideId === exemplarSlideId);
+    const exemplarTableShape = exemplarSlide?.shapes.find((s) => s.shapeType === "TABLE" && s.table);
+    if (exemplarTableShape?.table) {
+      const exemplarBorderSchema = extractBorderSchema(exemplarTableShape.table.cells);
+      if (exemplarBorderSchema) {
+        const scannedBorderSchema = extractBorderSchema(table.cells);
+        if (scannedBorderSchema) {
+          const mismatches = compareBorderSchemas(exemplarBorderSchema, scannedBorderSchema);
+          if (mismatches.length > 0) {
+            findings.push({
+              id: `finding-${stableHash([slideId, shape.objectId, "BP-TABLE-002"])}`,
+              ruleId: "BP-TABLE-002",
+              source: "exemplar",
+              slideId,
+              objectId: shape.objectId,
+              observed: { mismatches },
+              expected: { borderSchema: exemplarBorderSchema },
+              evidence: [
+                evidence("EXEMPLAR_EVIDENCE", "Table border colors differ from exemplar table."),
+                evidence("TABLE_EVIDENCE", "Mixed border colors signal template mixing.")
+              ],
+              confidence: 1,
+              risk: "manual",
+              severity: "warn",
+              coverage: "ANALYZED"
+            });
+          }
+        }
+      }
+    }
+  }
+
+  // BP-TABLE-007 — Vertical Alignment Inconsistency (playbook, per-row)
+  const byRow = new Map<number, TableCellSnapshot[]>();
+  for (const cell of table.cells) {
+    const arr = byRow.get(cell.rowIndex) ?? [];
+    arr.push(cell);
+    byRow.set(cell.rowIndex, arr);
+  }
+  for (const [rowIndex, rowCells] of byRow) {
+    const withVAlign = rowCells.filter((c): c is TableCellSnapshot & { verticalAlignment: VerticalAlignment } =>
+      c.verticalAlignment !== undefined
+    );
+    if (withVAlign.length < 2) continue;
+    const majorityVAlign = pluralityVerticalAlignment(withVAlign.map((c) => c.verticalAlignment));
+    if (!majorityVAlign) continue;
+    for (const cell of withVAlign) {
+      if (cell.verticalAlignment !== majorityVAlign) {
+        const findingId = `finding-${stableHash([slideId, shape.objectId, "BP-TABLE-007", rowIndex, cell.columnIndex])}`;
+        const patchId = `patch-${stableHash([findingId, "APPLY_MAJORITY_VERTICAL_ALIGN"])}`;
+        findings.push({
+          id: findingId,
+          ruleId: "BP-TABLE-007",
+          source: "playbook",
+          slideId,
+          objectId: shape.objectId,
+          observed: { verticalAlignment: cell.verticalAlignment, row: rowIndex, col: cell.columnIndex },
+          expected: { verticalAlignment: majorityVAlign, row: rowIndex },
+          evidence: [
+            evidence("TABLE_EVIDENCE", "Vertical alignment differs from row majority."),
+            evidence("TYPOGRAPHIC_EVIDENCE", "Mixed vertical alignment creates jagged row appearance.")
+          ],
+          confidence: 1,
+          risk: "safe",
+          severity: "warn",
+          coverage: "ANALYZED",
+          suggestedPatchId: patchId
+        });
+        patches.push({
+          id: patchId,
+          op: "APPLY_MAJORITY_VERTICAL_ALIGN",
+          target: {
+            slideId,
+            objectId: shape.objectId,
+            preconditionHash: stableHash({ row: rowIndex, col: cell.columnIndex })
+          },
+          fields: { verticalAlignment: majorityVAlign, rowIndex },
+          risk: "safe"
+        });
+      }
+    }
+  }
+
+  // BP-TABLE-006 — Empty Cell Without Explicit Notation (playbook)
+  // Only flag if table has at least some data (not a purely structural/spacer table)
+  const nonEmptyCellCount = table.cells.filter((c) => c.text.trim().length > 0).length;
+  if (nonEmptyCellCount >= 2) {
+    const emptyCells: Array<{ row: number; col: number }> = [];
+    for (const cell of table.cells) {
+      // Skip header row — blank headers are often intentional
+      if (cell.rowIndex === 0) continue;
+      if (cell.text.trim().length === 0) {
+        emptyCells.push({ row: cell.rowIndex, col: cell.columnIndex });
+      }
+    }
+    if (emptyCells.length > 0) {
+      findings.push({
+        id: `finding-${stableHash([slideId, shape.objectId, "BP-TABLE-006"])}`,
+        ruleId: "BP-TABLE-006",
+        source: "playbook",
+        slideId,
+        objectId: shape.objectId,
+        observed: { emptyCells },
+        expected: { notation: "Use —, 0, NA, or N/A for blank data cells" },
+        evidence: [
+          evidence("TABLE_EVIDENCE", "Blank data cells found in table."),
+          evidence("TEXT_STRING_EVIDENCE", "Empty cells are ambiguous — zero, missing, or not applicable?")
+        ],
+        confidence: 0.7,
+        risk: "manual",
+        severity: "info",
+        coverage: "ANALYZED"
+      });
+    }
+  }
+
+  // BP-TABLE-009 — Over-Bolding in Data Rows (playbook)
+  // Flag data rows (non-header, non-total) where >50% of text chars are bold
+  for (const [rowIndex, rowCells] of byRow) {
+    if (rowIndex === 0) continue; // skip header
+    // Heuristic: skip likely total/summary row (last row with sum/total keyword)
+    const isLastRow = rowIndex === table.rows - 1;
+    const hasTotal = isLastRow && rowCells.some((c) =>
+      /\b(total|sum|subtotal|grand)\b/i.test(c.text)
+    );
+    if (hasTotal) continue;
+
+    let boldChars = 0;
+    let totalChars = 0;
+    for (const cell of rowCells) {
+      for (const run of cell.textRuns) {
+        const len = run.text.trim().length;
+        if (len === 0) continue;
+        totalChars += len;
+        if (run.bold) boldChars += len;
+      }
+    }
+    if (totalChars >= 4 && boldChars / totalChars > 0.5) {
+      findings.push({
+        id: `finding-${stableHash([slideId, shape.objectId, "BP-TABLE-009", rowIndex])}`,
+        ruleId: "BP-TABLE-009",
+        source: "playbook",
+        slideId,
+        objectId: shape.objectId,
+        observed: { row: rowIndex, boldRatio: Math.round((boldChars / totalChars) * 100) },
+        expected: { maxBoldRatio: 50 },
+        evidence: [
+          evidence("TABLE_EVIDENCE", "Data row is over 50% bold."),
+          evidence("TYPOGRAPHIC_EVIDENCE", "Over-bolding destroys visual hierarchy — when everything is bold, nothing is bold.")
+        ],
+        confidence: 0.8,
+        risk: "manual",
+        severity: "info",
+        coverage: "ANALYZED"
+      });
+    }
+  }
+
   return { findings, patches };
+}
+
+// Extracts dominant border color per edge position across all cells
+function extractBorderSchema(cells: TableCellSnapshot[]): Record<string, string> | undefined {
+  const edgeCounts = {
+    top: new Map<string, number>(),
+    bottom: new Map<string, number>(),
+    left: new Map<string, number>(),
+    right: new Map<string, number>()
+  } as const;
+  let hasAny = false;
+  for (const cell of cells) {
+    if (!cell.borders) continue;
+    for (const edge of ["top", "bottom", "left", "right"] as const) {
+      const b = cell.borders[edge];
+      if (b?.color) {
+        const n = normalizeColorHex(b.color);
+        const bucket = edgeCounts[edge];
+        bucket.set(n, (bucket.get(n) ?? 0) + 1);
+        hasAny = true;
+      }
+    }
+  }
+  if (!hasAny) return undefined;
+  const schema: Record<string, string> = {};
+  for (const edge of ["top", "bottom", "left", "right"] as const) {
+    const counts = edgeCounts[edge];
+    if (!counts) {
+      continue;
+    }
+    let best: string | undefined;
+    let bestCount = 0;
+    for (const [color, count] of counts) {
+      if (count > bestCount) { bestCount = count; best = color; }
+    }
+    if (best) schema[edge] = best;
+  }
+  return Object.keys(schema).length > 0 ? schema : undefined;
+}
+
+function compareBorderSchemas(
+  exemplar: Record<string, string>,
+  scanned: Record<string, string>
+): Array<{ edge: string; expected: string; actual: string }> {
+  const mismatches: Array<{ edge: string; expected: string; actual: string }> = [];
+  for (const edge of ["top", "bottom", "left", "right"]) {
+    if (exemplar[edge] && scanned[edge] && exemplar[edge] !== scanned[edge]) {
+      mismatches.push({ edge, expected: exemplar[edge], actual: scanned[edge] });
+    }
+  }
+  return mismatches;
+}
+
+function pluralityVerticalAlignment(values: VerticalAlignment[]): VerticalAlignment | undefined {
+  if (values.length < 2) return undefined;
+  const counts = new Map<VerticalAlignment, number>();
+  for (const v of values) {
+    counts.set(v, (counts.get(v) ?? 0) + 1);
+  }
+  let best: VerticalAlignment | undefined;
+  let bestCount = 0;
+  for (const [a, c] of counts) {
+    if (c > bestCount) { bestCount = c; best = a; }
+  }
+  const winners = [...counts.entries()].filter(([, c]) => c === bestCount);
+  if (winners.length !== 1 || best === undefined) return undefined;
+  return best;
 }
 
 interface EvaluateInput {

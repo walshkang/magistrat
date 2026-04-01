@@ -210,6 +210,39 @@ describe("google adapter public api", () => {
     expect(cell?.borders?.top?.width).toBe(1);
   });
 
+  it("maps IMAGE bridge intrinsic pixels and optional MIME to ShapeSnapshot.imageMetadata", async () => {
+    const presentation = createBasePresentation();
+    presentation.slides[0]!.pageElements.push({
+      objectId: "pic-1",
+      name: "Picture",
+      elementType: "IMAGE",
+      visible: true,
+      grouped: false,
+      zIndex: 3,
+      geometry: {
+        left: 50,
+        top: 50,
+        width: 400,
+        height: 300,
+        rotation: 0
+      },
+      intrinsicWidthPx: 800,
+      intrinsicHeightPx: 600,
+      imageMimeType: "image/png"
+    });
+    const bridge = createMutableBridge(presentation);
+    setGoogleSlidesBridgeForTests(bridge.api);
+
+    const snapshot = await readDeckSnapshot();
+    const shape = snapshot.slides[0]?.shapes.find((s) => s.objectId === "pic-1");
+    expect(shape?.shapeType).toBe("IMAGE");
+    expect(shape?.imageMetadata).toEqual({
+      intrinsicWidth: 600,
+      intrinsicHeight: 450,
+      mimeType: "image/png"
+    });
+  });
+
   it("maps bridge paragraph alignment and shape border fields to the IR snapshot", async () => {
     const presentation = createBasePresentation();
     const el = presentation.slides[0]!.pageElements[0]!;

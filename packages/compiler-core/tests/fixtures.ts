@@ -47,7 +47,8 @@ export function createShape(overrides: Partial<ShapeSnapshot> = {}): ShapeSnapsh
       typography: true,
       bullets: true
     },
-    ...(overrides.table !== undefined ? { table: overrides.table } : {})
+    ...(overrides.table !== undefined ? { table: overrides.table } : {}),
+    ...(overrides.imageMetadata !== undefined ? { imageMetadata: overrides.imageMetadata } : {})
   };
 }
 
@@ -133,6 +134,28 @@ export function createTableShape(overrides: Partial<ShapeSnapshot> = {}): ShapeS
           textAlignment: "RIGHT"
         }
       ]
+    },
+    ...overrides
+  });
+}
+
+export function createImageShape(overrides: Partial<ShapeSnapshot> = {}): ShapeSnapshot {
+  return createShape({
+    shapeType: "IMAGE",
+    supportedForAnalysis: false,
+    textRuns: [],
+    paragraphs: [],
+    inspectability: { typography: false, bullets: false },
+    geometry: {
+      left: 100,
+      top: 100,
+      width: 300,
+      height: 225,
+      rotation: 0
+    },
+    imageMetadata: {
+      intrinsicWidth: 300,
+      intrinsicHeight: 225
     },
     ...overrides
   });

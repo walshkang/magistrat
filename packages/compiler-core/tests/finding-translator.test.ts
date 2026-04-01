@@ -397,6 +397,29 @@ describe("translateFinding", () => {
     });
   });
 
+  describe("BP-LAYOUT-005", () => {
+    it("describes distorted image ratio and safe apply", () => {
+      const result = translateFinding(
+        baseFinding({
+          ruleId: "BP-LAYOUT-005",
+          risk: "safe",
+          severity: "error",
+          observed: {
+            renderedWidth: 300,
+            renderedHeight: 300,
+            renderedRatio: 1,
+            intrinsicRatio: 1.333
+          },
+          expected: { aspectRatio: 1.333 }
+        })
+      );
+      expect(result.title).toContain("aspect ratio");
+      expect(result.description).toContain("300");
+      expect(result.actionLabel).toBe("Apply fix");
+      expect(result.riskLabel).toBe("Auto-fix");
+    });
+  });
+
   describe("BP-SAFETY-001", () => {
     it("mentions grouped shape and patch op", () => {
       const result = translateFinding(

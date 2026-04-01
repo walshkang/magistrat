@@ -77,6 +77,16 @@ export interface TableSnapshot {
   cells: TableCellSnapshot[];
 }
 
+/** Intrinsic image dimensions when `shapeType === "IMAGE"` (points, consistent with geometry). */
+export interface ImageMetadata {
+  /** Original image width in points (converted from pixels or EMU at extraction time) */
+  intrinsicWidth: number;
+  /** Original image height in points */
+  intrinsicHeight: number;
+  /** MIME type if available, e.g. "image/png", "image/jpeg" */
+  mimeType?: string;
+}
+
 export interface ShapeSnapshot {
   objectId: string;
   name: string;
@@ -101,6 +111,8 @@ export interface ShapeSnapshot {
   inspectability: ShapeInspectability;
   /** Table cell data when shapeType === "TABLE" */
   table?: TableSnapshot | undefined;
+  /** Intrinsic image dimensions when shapeType === "IMAGE" */
+  imageMetadata?: ImageMetadata | undefined;
 }
 
 export interface SlideSnapshot {

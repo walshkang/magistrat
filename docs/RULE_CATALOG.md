@@ -29,6 +29,13 @@ Extended IR with `TableSnapshot` and `TableCellSnapshot` on `ShapeSnapshot.table
 - **BP-TABLE-004** — Intra-Column Alignment Consistency
 - **BP-TABLE-005** — Trapped External Fonts
 
+### Table Rules Batch 2 (2026-04-01)
+Four additional table rules using the Slice 2 IR. Tests: `packages/compiler-core/tests/table-rules-batch2.test.ts`.
+- **BP-TABLE-002** — Table Border Color Consistency
+- **BP-TABLE-007** — Vertical Alignment Inconsistency
+- **BP-TABLE-006** — Empty Cell Without Explicit Notation
+- **BP-TABLE-009** — Over-Bolding in Data Rows
+
 ### Track A — Read API Extensions (unblocks blocked rules)
 Extend the existing Google and Office adapters to pull more fields from their respective APIs. No new permissions required — all data is already exposed. This is the right next step before Phase 7D.
 
@@ -357,7 +364,7 @@ Each rule follows this structure:
 - **What it checks:** Compares intrinsic image aspect ratio against rendered shape dimensions on the slide
 - **Why it matters:** Stretched logos, headshots, or product shots signal low rigor and damage brand credibility. Exec audiences catch this instantly.
 - **Evidence:** GEOMETRIC_EVIDENCE, MEDIA_METADATA
-- **Notes:** Needs API investigation — confirm intrinsic image dimensions are readable from Slides API / OOXML. Auto-fix restores height based on current width to match original ratio. Threshold: abs(original ratio - rendered ratio) > 0.01.
+- **Notes:** Intrinsic dimensions come from image binary headers (GAS `getBlob()` / Office `getBase64Image()`), stored on IR as `ShapeSnapshot.imageMetadata`. Auto-fix restores height based on current width to match original ratio. Threshold: abs(original ratio - rendered ratio) > 0.01.
 
 ### BP-LAYOUT-006 — Slide Margin Perimeter Breach
 - **Status:** active
@@ -534,7 +541,7 @@ Each rule follows this structure:
 - **Notes:** Requires DeckSnapshot extension to capture table cell fill properties. Both OOXML (`<a:tcPr>`) and Slides API (`tableCellProperties`) expose this data.
 
 ### BP-TABLE-002 — Table Border Color Consistency
-- **Status:** proposed
+- **Status:** active
 - **Source:** exemplar
 - **Severity:** warn
 - **Risk:** manual
@@ -582,7 +589,7 @@ Each rule follows this structure:
 - **Notes:** Highly reliable with API access. Auto-fix bulk-updates all table text nodes. Requires table cell model IR extension (Track A).
 
 ### BP-TABLE-006 — Empty Cell Without Explicit Notation
-- **Status:** proposed
+- **Status:** active
 - **Source:** playbook
 - **Severity:** info
 - **Risk:** manual
@@ -594,7 +601,7 @@ Each rule follows this structure:
 - **Notes:** Heuristic — structural spacer columns and intentionally blank header cells may be false positives. Requires table cell model IR extension (Track A).
 
 ### BP-TABLE-007 — Vertical Alignment Inconsistency
-- **Status:** proposed
+- **Status:** active
 - **Source:** playbook
 - **Severity:** warn
 - **Risk:** safe
@@ -662,7 +669,7 @@ Each rule follows this structure:
 - **Notes:** Engine must first recognize the repeating 1:1 pattern before flagging disruption. Auto-fix deferred — requires knowing which color is base vs. stripe. Requires table cell model IR extension (Track A).
 
 ### BP-TABLE-009 — Over-Bolding in Data Rows
-- **Status:** proposed
+- **Status:** active
 - **Source:** playbook
 - **Severity:** info
 - **Risk:** manual
@@ -737,6 +744,21 @@ Each rule follows this structure:
 
 **`PLAYBOOK_RULE_COUNT`:** 32 → 33 (+1 playbook-sourced; BP-TABLE-001 and BP-TABLE-005 are exemplar-sourced).
 
+### 2026-04-01 — Track A Slice 3 — Image Intrinsic Dimensions
+
+Extended IR with `ImageMetadata` on `ShapeSnapshot.imageMetadata`.
+GAS bridge extracts dimensions from image binary headers (PNG/JPEG/GIF).
+Office adapter: best-effort via `getBase64Image()` and header parsing.
+
+**Unblocks:**
+
+- **BP-LAYOUT-005** — Aspect Ratio Distortion
+- **Evidence:** `MEDIA_METADATA` in `shared-types` / patch op `RESTORE_ASPECT_RATIO` (safe; host apply deferred).
+
+**Tests:** `track-a-slice3.test.ts`; Google adapter IMAGE mapping test.
+
+**`PLAYBOOK_RULE_COUNT`:** 33 → 34 (+1 playbook-sourced; BP-LAYOUT-005).
+
 ---
 
 ### 2026-03-31 — Phase 8A Implementation
@@ -750,7 +772,7 @@ Each rule follows this structure:
 
 **Tests:** `packages/compiler-core/tests/phase8a-rules.test.ts` — 15 tests, all passing.
 
-**Blocked rules (require IR extension — deferred):** BP-TYPO-006 (text bounds), BP-TYPO-007 (rendered line breaks), BP-LAYOUT-005 (intrinsic image dimensions), BP-LAYOUT-006 (exemplar boundary scan), BP-HYGIENE-007 (config extension), BP-TABLE-002 (table border schema vs exemplar).
+**Blocked rules (require IR extension — deferred):** BP-TYPO-006 (text bounds), BP-TYPO-007 (rendered line breaks), BP-LAYOUT-006 (exemplar boundary scan), BP-HYGIENE-007 (config extension), BP-TABLE-002 (table border schema vs exemplar).
 
 ---
 

@@ -63,6 +63,11 @@ interface OfficeTableCellLike {
   paddingRight?: number;
 }
 
+interface OfficeImageLike {
+  load(select: string): void;
+  getBase64Image?(): Promise<string>;
+}
+
 interface ShapeLike {
   id?: string;
   name?: string;
@@ -78,6 +83,7 @@ interface ShapeLike {
   lineFormat?: { color?: string | null; weight?: number | null } | null;
   textFrame?: TextFrameLike;
   table?: OfficeTableLike;
+  image?: OfficeImageLike;
   load(select: string): void;
 }
 
@@ -205,6 +211,8 @@ async function readDeckSnapshot(options: OfficeReadonlyProviderOptions): Promise
         let shapeSnapshot = mapShape(entry);
         if (normalizeShapeType(entry.shape.type) === "TABLE") {
           shapeSnapshot = await enrichTableShape(context, entry, shapeSnapshot);
+        } else if (normalizeShapeType(entry.shape.type) === "IMAGE") {
+          shapeSnapshot = await enrichImageShape(context, entry, shapeSnapshot);
         }
         const slideShapes = shapesBySlide.get(entry.slide);
         if (slideShapes) {
@@ -226,6 +234,48 @@ async function readDeckSnapshot(options: OfficeReadonlyProviderOptions): Promise
       }))
     };
   });
+}
+
+async function enrichImageShape(
+  context: ContextLike,
+  entry: ShapeEntry,
+  base: ShapeSnapshot
+): Promise<ShapeSnapshot> {
+  try {
+    try {
+      entry.shape.load("image");
+    } catch {
+      return base;
+    }
+    await context.sync();
+    const imageProp = entry.shape.image;
+    if (!imageProp || typeof imageProp.getBase64Image !== "function") {
+      return base;
+    }
+    const base64 = await imageProp.getBase64Image();
+    if (!base64 || base64.length === 0) {
+      return base;
+    }
+    const prefix = base64.substring(0, Math.min(base64.length, 8000));
+    const binaryStr = globalThis.atob(prefix);
+    const bytes: number[] = [];
+    for (let i = 0; i < binaryStr.length; i += 1) {
+      bytes.push(binaryStr.charCodeAt(i) & 0xff);
+    }
+    const dims = getImageDimensionsFromBytes(bytes);
+    if (!dims) {
+      return base;
+    }
+    return {
+      ...base,
+      imageMetadata: {
+        intrinsicWidth: dims.width * 0.75,
+        intrinsicHeight: dims.height * 0.75
+      }
+    };
+  } catch {
+    return base;
+  }
 }
 
 async function enrichTableShape(
@@ -434,6 +484,50 @@ function numberOr(value: number | undefined, fallback: number): number {
 
 function booleanOr(value: boolean | undefined, fallback: boolean): boolean {
   return typeof value === "boolean" ? value : fallback;
+}
+
+function getImageDimensionsFromBytes(bytes: number[]): { width: number; height: number } | null {
+  if (bytes.length < 24) {
+    return null;
+  }
+
+  if (bytes[0] === 0x89 && bytes[1] === 0x50) {
+    const w = (bytes[16]! << 24) | (bytes[17]! << 16) | (bytes[18]! << 8) | bytes[19]!;
+    const h = (bytes[20]! << 24) | (bytes[21]! << 16) | (bytes[22]! << 8) | bytes[23]!;
+    if (w > 0 && h > 0) {
+      return { width: w, height: h };
+    }
+  }
+
+  if (bytes[0] === 0xff && bytes[1] === 0xd8) {
+    let offset = 2;
+    while (offset < bytes.length - 9) {
+      if (bytes[offset] === 0xff) {
+        const marker = bytes[offset + 1];
+        if (marker === 0xc0 || marker === 0xc2) {
+          const h = (bytes[offset + 5]! << 8) | bytes[offset + 6]!;
+          const w = (bytes[offset + 7]! << 8) | bytes[offset + 8]!;
+          if (w > 0 && h > 0) {
+            return { width: w, height: h };
+          }
+        }
+        const segLen = (bytes[offset + 2]! << 8) | bytes[offset + 3]!;
+        offset += 2 + segLen;
+      } else {
+        offset += 1;
+      }
+    }
+  }
+
+  if (bytes[0] === 0x47 && bytes[1] === 0x49 && bytes[2] === 0x46) {
+    const w = bytes[6]! | (bytes[7]! << 8);
+    const h = bytes[8]! | (bytes[9]! << 8);
+    if (w > 0 && h > 0) {
+      return { width: w, height: h };
+    }
+  }
+
+  return null;
 }
 
 function getPowerPointRun():

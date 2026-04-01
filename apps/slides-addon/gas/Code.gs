@@ -223,6 +223,26 @@ function readPresentation() {
             element.table.cells.push(cellData);
           }
         }
+      } else if (el.getPageElementType() === SlidesApp.PageElementType.IMAGE) {
+        var image = el.asImage();
+        element.elementType = 'IMAGE';
+        try {
+          var blob = image.getBlob();
+          if (blob) {
+            var contentType = blob.getContentType();
+            if (contentType) {
+              element.imageMimeType = contentType;
+            }
+            var bytes = blob.getBytes();
+            var dims = getImageDimensions(bytes, contentType);
+            if (dims) {
+              element.intrinsicWidthPx = dims.width;
+              element.intrinsicHeightPx = dims.height;
+            }
+          }
+        } catch (e) {
+          /* Blob not accessible (external URL image, DRM, etc.) — skip */
+        }
       }
 
       elements.push(element);
@@ -291,6 +311,57 @@ function extractTextInfo(textRange) {
   }
 
   return { runs: runs, paragraphs: paragraphs };
+}
+
+/**
+ * Extract width/height from PNG or JPEG binary header.
+ * Returns { width, height } or null if format not recognized.
+ */
+function getImageDimensions(bytes, contentType) {
+  if (!bytes || bytes.length < 24) return null;
+
+  // PNG: bytes 16-23 contain width (4 bytes BE) and height (4 bytes BE)
+  if (contentType === 'image/png' || (bytes[0] === -119 && bytes[1] === 80)) {
+    var w =
+      ((bytes[16] & 0xff) << 24) |
+      ((bytes[17] & 0xff) << 16) |
+      ((bytes[18] & 0xff) << 8) |
+      (bytes[19] & 0xff);
+    var h =
+      ((bytes[20] & 0xff) << 24) |
+      ((bytes[21] & 0xff) << 16) |
+      ((bytes[22] & 0xff) << 8) |
+      (bytes[23] & 0xff);
+    if (w > 0 && h > 0) return { width: w, height: h };
+  }
+
+  // JPEG: scan for SOF0 (0xFF 0xC0) or SOF2 (0xFF 0xC2) marker
+  if (contentType === 'image/jpeg' || (bytes[0] === -1 && bytes[1] === -40)) {
+    var offset = 2;
+    while (offset < bytes.length - 9) {
+      if ((bytes[offset] & 0xff) === 0xff) {
+        var marker = bytes[offset + 1] & 0xff;
+        if (marker === 0xc0 || marker === 0xc2) {
+          var h = ((bytes[offset + 5] & 0xff) << 8) | (bytes[offset + 6] & 0xff);
+          var w = ((bytes[offset + 7] & 0xff) << 8) | (bytes[offset + 8] & 0xff);
+          if (w > 0 && h > 0) return { width: w, height: h };
+        }
+        var segLen = ((bytes[offset + 2] & 0xff) << 8) | (bytes[offset + 3] & 0xff);
+        offset += 2 + segLen;
+      } else {
+        offset++;
+      }
+    }
+  }
+
+  // GIF: width at bytes 6-7 (LE), height at 8-9 (LE)
+  if (contentType === 'image/gif' || (bytes[0] === 71 && bytes[1] === 73 && bytes[2] === 70)) {
+    var gw = (bytes[6] & 0xff) | ((bytes[7] & 0xff) << 8);
+    var gh = (bytes[8] & 0xff) | ((bytes[9] & 0xff) << 8);
+    if (gw > 0 && gh > 0) return { width: gw, height: gh };
+  }
+
+  return null;
 }
 
 // ── Document state carrier (stored in document properties) ──

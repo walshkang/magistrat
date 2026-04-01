@@ -91,6 +91,11 @@ export interface GoogleBridgePageElement {
     autofitEnabled?: boolean;
   };
   table?: GoogleBridgeTable;
+  /** Pixel width from image binary header (GAS bridge) */
+  intrinsicWidthPx?: number;
+  /** Pixel height from image binary header (GAS bridge) */
+  intrinsicHeightPx?: number;
+  imageMimeType?: string;
 }
 
 export interface GoogleBridgeSlide {

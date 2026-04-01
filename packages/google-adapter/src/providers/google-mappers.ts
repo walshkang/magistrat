@@ -1,6 +1,7 @@
 import type {
   CellBorders,
   DeckSnapshot,
+  ImageMetadata,
   ParagraphAlignment,
   ShapeSnapshot,
   ShapeType,
@@ -46,6 +47,17 @@ export function mapPageElement(element: GoogleBridgePageElement): ShapeSnapshot 
         typeof run.italic === "boolean" &&
         typeof run.fontColor === "string"
     );
+
+  const imageMetadata: ImageMetadata | undefined =
+    shapeType === "IMAGE" &&
+    typeof element.intrinsicWidthPx === "number" &&
+    typeof element.intrinsicHeightPx === "number"
+      ? {
+          intrinsicWidth: element.intrinsicWidthPx * 0.75,
+          intrinsicHeight: element.intrinsicHeightPx * 0.75,
+          ...(element.imageMimeType ? { mimeType: element.imageMimeType } : {})
+        }
+      : undefined;
 
   return {
     objectId: element.objectId,
@@ -93,7 +105,8 @@ export function mapPageElement(element: GoogleBridgePageElement): ShapeSnapshot 
       typography: element.text?.inspectability?.typography ?? inferredTypographyInspectable,
       bullets: element.text?.inspectability?.bullets ?? paragraphs.length > 0
     },
-    ...(element.table ? { table: mapTable(element.table) } : {})
+    ...(element.table ? { table: mapTable(element.table) } : {}),
+    ...(imageMetadata ? { imageMetadata } : {})
   };
 }
 

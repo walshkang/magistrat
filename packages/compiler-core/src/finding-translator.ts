@@ -169,6 +169,55 @@ const RULE_TRANSLATORS: Record<string, RuleTranslator> = {
     riskLabel: "Manual only"
   }),
 
+  "BP-TABLE-001": (f) => ({
+    title: `Table header fill ${str(f.observed.headerFillColor)} differs from exemplar ${str(f.expected.headerFillColor)}`,
+    description: "Header row background color should match the exemplar table style.",
+    actionLabel: null,
+    riskLabel: "Manual only"
+  }),
+
+  "BP-TABLE-002": (f) => ({
+    title: "Table border colors differ from exemplar",
+    description: "Border color discipline defines visual hierarchy. Mixed borders signal template mixing.",
+    actionLabel: null,
+    riskLabel: "Manual only"
+  }),
+
+  "BP-TABLE-004": (f) => ({
+    title: `Column ${num(f.observed.col)} row ${num(f.observed.row)}: ${str(f.observed.alignment)} differs from column majority ${str(f.expected.alignment)}`,
+    description: "Data cell alignment should be consistent within each column.",
+    actionLabel: actionLabel(f),
+    riskLabel: riskLabel(f)
+  }),
+
+  "BP-TABLE-005": (f) => ({
+    title: `Table contains off-brand font — expected ${str(f.expected.fontFamily)}`,
+    description: "Tables pasted from Excel often bring Calibri or Aptos, breaking corporate typography.",
+    actionLabel: actionLabel(f),
+    riskLabel: riskLabel(f)
+  }),
+
+  "BP-TABLE-006": () => ({
+    title: "Table has blank data cells without explicit notation",
+    description: "Empty cells are ambiguous — use —, 0, NA, or N/A to clarify intent.",
+    actionLabel: null,
+    riskLabel: "Manual only"
+  }),
+
+  "BP-TABLE-007": (f) => ({
+    title: `Row ${num(f.observed.row)} col ${num(f.observed.col)}: vertical alignment ${str(f.observed.verticalAlignment)} differs from row majority`,
+    description: "Mixed vertical alignment in a row creates a jagged, unstructured appearance.",
+    actionLabel: actionLabel(f),
+    riskLabel: riskLabel(f)
+  }),
+
+  "BP-TABLE-009": (f) => ({
+    title: `Data row ${num(f.observed.row)} is ${num(f.observed.boldRatio)}% bold`,
+    description: "Over-bolding in data rows destroys visual hierarchy — when everything is bold, nothing is bold.",
+    actionLabel: null,
+    riskLabel: "Manual only"
+  }),
+
   "BP-BULLET-001": (f) => ({
     title: `${roleLabel(f.role)} bullet indent does not match exemplar`,
     description: `Expected indent ${num(f.expected.bulletIndent)}pt / hanging ${num(f.expected.bulletHanging)}pt, found ${num(f.observed.bulletIndent)}pt / ${num(f.observed.bulletHanging)}pt.`,
@@ -266,6 +315,13 @@ const RULE_TRANSLATORS: Record<string, RuleTranslator> = {
     description: "This element appears to be a section breadcrumb but its horizontal position differs from the exemplar.",
     actionLabel: null,
     riskLabel: "Manual only"
+  }),
+
+  "BP-LAYOUT-005": (f) => ({
+    title: "Image aspect ratio distorted",
+    description: `Rendered ${num(f.observed.renderedWidth)}×${num(f.observed.renderedHeight)}pt (ratio ${num(f.observed.renderedRatio)}) does not match intrinsic ratio ${num(f.observed.intrinsicRatio)}.`,
+    actionLabel: actionLabel(f),
+    riskLabel: riskLabel(f)
   }),
 
   "BP-SAFETY-001": (f) => ({

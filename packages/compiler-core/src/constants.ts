@@ -9,7 +9,9 @@ export const SAFE_PATCH_OPS: ReadonlySet<PatchOpType> = new Set([
   "NORMALIZE_LANGUAGE_TAGS",
   "SET_TEXT_ALIGNMENT",
   "SET_TABLE_FONT",
-  "APPLY_MAJORITY_ALIGNMENT"
+  "APPLY_MAJORITY_ALIGNMENT",
+  "RESTORE_ASPECT_RATIO",
+  "APPLY_MAJORITY_VERTICAL_ALIGN"
 ]);
 
 export const CAUTION_PATCH_OPS: ReadonlySet<PatchOpType> = new Set([
@@ -36,4 +38,4 @@ export const ROLE_CONFIDENCE_MIN = {
  * Distinct playbook rule IDs evaluated by runChecks + continuity in v1 (excludes BP-COVERAGE-001).
  * Bump when adding BP-* rules.
  */
-export const PLAYBOOK_RULE_COUNT = 33;
+export const PLAYBOOK_RULE_COUNT = 37;
