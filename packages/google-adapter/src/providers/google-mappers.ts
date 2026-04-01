@@ -1,4 +1,4 @@
-import type { DeckSnapshot, ShapeSnapshot, ShapeType } from "@magistrat/shared-types";
+import type { DeckSnapshot, ParagraphAlignment, ShapeSnapshot, ShapeType } from "@magistrat/shared-types";
 import type { GoogleBridgePageElement, GoogleBridgePresentation } from "../bridge-types.js";
 
 export function mapPresentationToDeckSnapshot(presentation: GoogleBridgePresentation): DeckSnapshot {
@@ -47,6 +47,8 @@ export function mapPageElement(element: GoogleBridgePageElement): ShapeSnapshot 
     zIndex: element.zIndex ?? 0,
     ...(typeof element.fillColor === "string" ? { fillColor: normalizeColor(element.fillColor) } : {}),
     ...(typeof element.fillAlpha === "number" ? { fillAlpha: element.fillAlpha } : {}),
+    ...(typeof element.lineColor === "string" ? { lineColor: normalizeColor(element.lineColor) } : {}),
+    ...(typeof element.lineWidth === "number" && element.lineWidth > 0 ? { lineWidth: element.lineWidth } : {}),
     textRuns: runs.map((run) => ({
       text: run.text,
       fontFamily: run.fontFamily ?? "",
@@ -57,14 +59,18 @@ export function mapPageElement(element: GoogleBridgePageElement): ShapeSnapshot 
       fontAlpha: run.fontAlpha ?? 1,
       ...(run.proofingLanguage ? { proofingLanguage: run.proofingLanguage } : {})
     })),
-    paragraphs: paragraphs.map((paragraph) => ({
-      level: normalizeLevel(paragraph.level),
-      text: paragraph.text,
-      ...(typeof paragraph.bulletIndent === "number" ? { bulletIndent: paragraph.bulletIndent } : {}),
-      ...(typeof paragraph.bulletHanging === "number" ? { bulletHanging: paragraph.bulletHanging } : {}),
-      ...(typeof paragraph.lineSpacing === "number" ? { lineSpacing: paragraph.lineSpacing } : {}),
-      ...(typeof paragraph.bulletGlyph === "string" ? { bulletGlyph: paragraph.bulletGlyph } : {})
-    })),
+    paragraphs: paragraphs.map((paragraph) => {
+      const alignment = normalizeAlignment(paragraph.alignment);
+      return {
+        level: normalizeLevel(paragraph.level),
+        text: paragraph.text,
+        ...(typeof paragraph.bulletIndent === "number" ? { bulletIndent: paragraph.bulletIndent } : {}),
+        ...(typeof paragraph.bulletHanging === "number" ? { bulletHanging: paragraph.bulletHanging } : {}),
+        ...(typeof paragraph.lineSpacing === "number" ? { lineSpacing: paragraph.lineSpacing } : {}),
+        ...(typeof paragraph.bulletGlyph === "string" ? { bulletGlyph: paragraph.bulletGlyph } : {}),
+        ...(alignment ? { alignment } : {})
+      };
+    }),
     geometry: {
       left: element.geometry?.left ?? 0,
       top: element.geometry?.top ?? 0,
@@ -107,6 +113,16 @@ function normalizeColor(rawColor: string): string {
     return `#${color.replace("#", "").toUpperCase()}`;
   }
   return "#000000";
+}
+
+function normalizeAlignment(raw: string | undefined): ParagraphAlignment | undefined {
+  if (!raw) return undefined;
+  const normalized = raw.toUpperCase();
+  if (normalized === "LEFT" || normalized === "START") return "LEFT";
+  if (normalized === "CENTER") return "CENTER";
+  if (normalized === "RIGHT" || normalized === "END") return "RIGHT";
+  if (normalized === "JUSTIFIED") return "JUSTIFIED";
+  return undefined;
 }
 
 function normalizeLevel(rawLevel: number): 0 | 1 | 2 | 3 | 4 {

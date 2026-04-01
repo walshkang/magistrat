@@ -37,6 +37,8 @@ export function createShape(overrides: Partial<ShapeSnapshot> = {}): ShapeSnapsh
     },
     fillColor: overrides.fillColor,
     fillAlpha: overrides.fillAlpha,
+    lineColor: overrides.lineColor,
+    lineWidth: overrides.lineWidth,
     inferredRole: overrides.inferredRole,
     inferredRoleScore: overrides.inferredRoleScore,
     supportedForAnalysis: overrides.supportedForAnalysis ?? true,

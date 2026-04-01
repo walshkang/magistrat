@@ -114,6 +114,25 @@ function readPresentation() {
         } catch (e) {
           // Theme fills can't be converted to RGB — skip
         }
+        try {
+          var border = shape.getBorder();
+          if (border) {
+            var weight = border.getWeight();
+            if (weight > 0) {
+              element.lineWidth = weight;
+              try {
+                var lineFill = border.getLineFill();
+                if (lineFill && lineFill.getSolidFill()) {
+                  element.lineColor = lineFill.getSolidFill().getColor().asRgbColor().asHexString();
+                }
+              } catch (e2) {
+                // Theme line color can't be converted — skip
+              }
+            }
+          }
+        } catch (e) {
+          // Border not available on this shape type — skip
+        }
       }
 
       elements.push(element);
@@ -160,9 +179,23 @@ function extractTextInfo(textRange) {
   for (var j = 0; j < paras.length; j++) {
     var para = paras[j];
     var paraStyle = para.getRange().getParagraphStyle();
+    var alignment = undefined;
+    try {
+      var rawAlignment = paraStyle.getParagraphAlignment();
+      if (rawAlignment) {
+        var alignStr = rawAlignment.toString();
+        if (alignStr === 'START') alignment = 'LEFT';
+        else if (alignStr === 'CENTER') alignment = 'CENTER';
+        else if (alignStr === 'END') alignment = 'RIGHT';
+        else if (alignStr === 'JUSTIFIED') alignment = 'JUSTIFIED';
+      }
+    } catch (e) {
+      // Alignment not available — skip
+    }
     paragraphs.push({
       level: paraStyle.getIndentStart() ? 1 : 0,
       lineSpacing: paraStyle.getLineSpacing(),
+      alignment: alignment,
       text: para.getRange().asString(),
     });
   }

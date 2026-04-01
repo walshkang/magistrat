@@ -18,13 +18,18 @@ Shipped in `checks.ts` / `continuity.ts` with tests in `phase8b-rules.test.ts`:
 - **BP-LAYOUT-008** — Horizontal Distribution Consistency
 - **BP-LAYOUT-009** — Slide Text Density
 
+### Track A Slice 1 — IR Extensions (2026-03-31)
+Extended IR with `ParagraphSnapshot.alignment` and `ShapeSnapshot.lineColor` / `lineWidth`. Google GAS bridge, `google-adapter` mapper, and `office-adapter` read path updated; `RoleStyleTokens` includes dominant `alignment`. Tests: `packages/compiler-core/tests/track-a-slice1.test.ts`, mapper coverage in `packages/google-adapter/tests/public-api.test.ts`. Unblocks:
+- **BP-TYPO-012** — Text Alignment Mismatch
+- **BP-COLOR-004** — Shape Border Off Palette
+
 ### Track A — Read API Extensions (unblocks blocked rules)
 Extend the existing Google and Office adapters to pull more fields from their respective APIs. No new permissions required — all data is already exposed. This is the right next step before Phase 7D.
 
 | IR gap | Affects |
 |---|---|
-| `ParagraphSnapshot.alignment` | BP-TYPO-012 |
-| `ShapeSnapshot.lineColor + lineWidth` | BP-COLOR-004 |
+| `ParagraphSnapshot.alignment` | BP-TYPO-012 (implemented Slice 1) |
+| `ShapeSnapshot.lineColor + lineWidth` | BP-COLOR-004 (implemented Slice 1) |
 | Image intrinsic dimensions | BP-LAYOUT-005 |
 | Table cell model (fill, borders, margins, font, alignment, vertical align) | BP-TABLE-001 through BP-TABLE-009 |
 | Chart series colors + axis metadata | BP-CHART-001, BP-CHART-002 |
@@ -599,7 +604,7 @@ Each rule follows this structure:
 ### Tier 2 — Good to Have
 
 ### BP-TYPO-012 — Text Alignment Mismatch
-- **Status:** proposed
+- **Status:** active
 - **Source:** exemplar
 - **Severity:** warn
 - **Risk:** safe
@@ -608,7 +613,7 @@ Each rule follows this structure:
 - **What it checks:** Compares paragraph alignment (left/center/right/justified) against the exemplar for that role
 - **Why it matters:** A center-aligned body text box in a left-aligned deck creates immediate visual dissonance.
 - **Evidence:** EXEMPLAR_EVIDENCE, TYPOGRAPHIC_EVIDENCE
-- **Notes:** Blocked — `ParagraphSnapshot` has no `alignment` field. Needs IR extension before implementation.
+- **Notes:** Dominant alignment per shape (majority of paragraphs); skips when host omits alignment (e.g. Office read path) or style map has no alignment token. Apply for `SET_TEXT_ALIGNMENT` not implemented in host adapters yet (suggestion-only).
 
 ### BP-CHART-001 — Chart Series Color Off-Palette
 - **Status:** proposed
@@ -623,16 +628,16 @@ Each rule follows this structure:
 - **Notes:** Blocked — requires DeckSnapshot extension to read chart series properties. OOXML (`<c:chart>`) and Slides API both expose series colors. Same IR extension needed as TABLE-001/002.
 
 ### BP-COLOR-004 — Shape Border Off Palette
-- **Status:** proposed
+- **Status:** active
 - **Source:** playbook
 - **Severity:** warn
 - **Risk:** manual
 - **Auto-fix:** no
 - **Type:** deterministic
-- **What it checks:** Shape line/border color checked against the slide master palette; only evaluated when the shape has a visible border (thickness > 0)
+- **What it checks:** Shape line/border color checked against the exemplar style palette (unique `fontColor` and `fillColor` values from the style map); only when `lineWidth` > 0 and `lineColor` is present
 - **Why it matters:** Authors fix fill colors but forget the 1pt border — leaving a default Microsoft blue outline on a branded corporate shape.
 - **Evidence:** PLAYBOOK_EVIDENCE, COLOR_EVIDENCE
-- **Notes:** Blocked — `ShapeSnapshot` has no `lineColor` or `lineWidth` field. Needs IR extension. Companion to BP-COLOR-003.
+- **Notes:** Skips when the palette is empty. Companion to BP-COLOR-003.
 
 ---
 
@@ -699,6 +704,18 @@ Each rule follows this structure:
 **Tests:** `packages/compiler-core/tests/phase8b-rules.test.ts`
 
 **`PLAYBOOK_RULE_COUNT`:** 26 → 31 (+5 playbook-sourced; TYPO-009 is continuity-only).
+
+### 2026-03-31 — Track A Slice 1 (IR alignment + border)
+
+**Implemented:**
+- **BP-TYPO-012** — Text alignment vs exemplar (`checks.ts`); patch op `SET_TEXT_ALIGNMENT` in `shared-types` / compiler safe ops (host apply deferred).
+- **BP-COLOR-004** — Border color vs exemplar font/fill palette (`checks.ts`).
+
+**IR / adapters:** `ir.ts`, GAS `Code.gs`, `google-adapter` bridge + mapper, `office-adapter` optional `fill` / `lineFormat` load, `style-map.ts`, `infer-rules.ts` (`alignment` candidate).
+
+**Tests:** `track-a-slice1.test.ts`; `google-adapter` public API mapper test.
+
+**`PLAYBOOK_RULE_COUNT`:** 31 → 32 (+1 playbook-sourced; TYPO-012 is exemplar-only).
 
 ---
 

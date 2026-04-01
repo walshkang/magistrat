@@ -1,5 +1,6 @@
 import type { Finding } from "./findings.js";
 import type { PatchRecord } from "./patches.js";
+import type { ParagraphAlignment } from "./ir.js";
 import type { RoleV1 } from "./roles.js";
 import type { RuleProfile } from "./rule-profile.js";
 
@@ -15,6 +16,7 @@ export interface RoleStyleTokens {
   bulletGlyph?: string | undefined;
   /** Exemplar callout shape fill when present */
   fillColor?: string | undefined;
+  alignment?: ParagraphAlignment | undefined;
   /** Exemplar TITLE band: centroid of shape box centers (pt), when layout cluster exists */
   geometryCentroid?: { x: number; y: number };
   /** True when exemplar has at least one usable geometry sample for this role (layout rules) */

@@ -12,7 +12,8 @@ export const PATCH_OP_VALUES = [
   "DEDUPE_DELETE",
   "MASTER_LAYOUT_CHANGES",
   "BREAK_GROUP",
-  "NORMALIZE_LANGUAGE_TAGS"
+  "NORMALIZE_LANGUAGE_TAGS",
+  "SET_TEXT_ALIGNMENT"
 ] as const;
 
 export type PatchOpType = (typeof PATCH_OP_VALUES)[number];

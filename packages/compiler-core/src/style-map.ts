@@ -1,4 +1,4 @@
-import type { RoleStyleTokens, SlideSnapshot, StyleMap } from "@magistrat/shared-types";
+import type { ParagraphAlignment, RoleStyleTokens, SlideSnapshot, StyleMap } from "@magistrat/shared-types";
 import { inferRoles } from "./role-inference.js";
 
 export interface BuildStyleMapResult {
@@ -44,6 +44,7 @@ export function buildStyleMap(
       bulletIndent: shape.paragraphs[0]?.bulletIndent,
       bulletHanging: shape.paragraphs[0]?.bulletHanging,
       bulletGlyph: shape.paragraphs[0]?.bulletGlyph,
+      alignment: selectDominantAlignment(shape.paragraphs),
       ...(role === "CALLOUT" && shape.fillColor !== undefined ? { fillColor: shape.fillColor } : {})
     };
 
@@ -131,6 +132,28 @@ function augmentLayoutBands(styleMap: StyleMap, inferredSlide: SlideSnapshot): v
   }
 }
 
+/** Majority paragraph alignment; deterministic tie-break by lexicographic order. */
+export function selectDominantAlignment(
+  paragraphs: Array<{ alignment?: ParagraphAlignment | undefined }>
+): ParagraphAlignment | undefined {
+  const counts = new Map<string, number>();
+  for (const p of paragraphs) {
+    if (p.alignment) {
+      counts.set(p.alignment, (counts.get(p.alignment) ?? 0) + 1);
+    }
+  }
+  if (counts.size === 0) {
+    return undefined;
+  }
+  const sorted = [...counts.entries()].sort((a, b) => {
+    if (b[1] !== a[1]) {
+      return b[1] - a[1];
+    }
+    return a[0].localeCompare(b[0]);
+  });
+  return sorted[0]![0] as ParagraphAlignment;
+}
+
 function selectDominantRun(
   runs: Array<{ text: string; fontFamily: string; fontSizePt: number; bold: boolean; italic: boolean; fontColor: string }>
 ): { text: string; fontFamily: string; fontSizePt: number; bold: boolean; italic: boolean; fontColor: string } | undefined {
@@ -150,7 +173,8 @@ function normalizeTokens(tokens: RoleStyleTokens): RoleStyleTokens {
     bulletIndent: tokens.bulletIndent !== undefined ? roundToHalf(tokens.bulletIndent) : undefined,
     bulletHanging: tokens.bulletHanging !== undefined ? roundToHalf(tokens.bulletHanging) : undefined,
     bulletGlyph: tokens.bulletGlyph !== undefined ? tokens.bulletGlyph.trim() : undefined,
-    fillColor: tokens.fillColor !== undefined ? tokens.fillColor.trim() : undefined
+    fillColor: tokens.fillColor !== undefined ? tokens.fillColor.trim() : undefined,
+    alignment: tokens.alignment
   };
 }
 

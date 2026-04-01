@@ -13,12 +13,15 @@ export interface TextRunSnapshot {
   proofingLanguage?: string;
 }
 
+export type ParagraphAlignment = "LEFT" | "CENTER" | "RIGHT" | "JUSTIFIED";
+
 export interface ParagraphSnapshot {
   level: 0 | 1 | 2 | 3 | 4;
   bulletIndent?: number;
   bulletHanging?: number;
   bulletGlyph?: string;
   lineSpacing?: number;
+  alignment?: ParagraphAlignment | undefined;
   text: string;
 }
 
@@ -45,6 +48,10 @@ export interface ShapeSnapshot {
   /** Shape fill (e.g. callout background); from host when available */
   fillColor?: string | undefined;
   fillAlpha?: number | undefined;
+  /** Shape border/outline color when present; hex #RRGGBB */
+  lineColor?: string | undefined;
+  /** Shape border/outline width in points; 0 or absent = no border */
+  lineWidth?: number | undefined;
   textRuns: TextRunSnapshot[];
   paragraphs: ParagraphSnapshot[];
   geometry: GeometrySnapshot;

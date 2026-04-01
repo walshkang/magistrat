@@ -90,6 +90,17 @@ function inferTypographyRules(role: RoleV1, tokens: RoleStyleTokens): CandidateR
     );
   }
 
+  if (tokens.alignment !== undefined) {
+    rules.push(
+      makeCandidate(
+        role,
+        "alignment",
+        tokens.alignment,
+        `${formatRole(role)} text alignment: ${tokens.alignment}`
+      )
+    );
+  }
+
   return rules;
 }
 

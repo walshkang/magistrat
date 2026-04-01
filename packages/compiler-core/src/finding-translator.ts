@@ -155,6 +155,20 @@ const RULE_TRANSLATORS: Record<string, RuleTranslator> = {
     riskLabel: "Manual only"
   }),
 
+  "BP-TYPO-012": (f) => ({
+    title: `${roleLabel(f.role)} alignment should be ${str(f.expected.alignment)}, currently ${str(f.observed.alignment)}`,
+    description: "Paragraph alignment does not match the exemplar style map for this role.",
+    actionLabel: actionLabel(f),
+    riskLabel: riskLabel(f)
+  }),
+
+  "BP-COLOR-004": (f) => ({
+    title: `Shape border ${str(f.observed.lineColor)} is not in the exemplar palette`,
+    description: "Border/outline color should use colors from the exemplar typography and fill palette.",
+    actionLabel: null,
+    riskLabel: "Manual only"
+  }),
+
   "BP-BULLET-001": (f) => ({
     title: `${roleLabel(f.role)} bullet indent does not match exemplar`,
     description: `Expected indent ${num(f.expected.bulletIndent)}pt / hanging ${num(f.expected.bulletHanging)}pt, found ${num(f.observed.bulletIndent)}pt / ${num(f.observed.bulletHanging)}pt.`,

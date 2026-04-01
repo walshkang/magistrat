@@ -172,6 +172,16 @@ describe("inferCandidateRules", () => {
     const { candidates } = inferCandidateRules({});
     expect(candidates).toEqual([]);
   });
+
+  it("infers alignment candidate when tokens include alignment", () => {
+    const styleMap: StyleMap = {
+      BODY: tokens({ fontFamily: "Aptos", fontSizePt: 14, alignment: "LEFT" })
+    };
+    const { candidates } = inferCandidateRules(styleMap);
+    const alignmentRule = candidates.find((c) => c.role === "BODY" && c.property === "alignment");
+    expect(alignmentRule?.observedValue).toBe("LEFT");
+    expect(alignmentRule?.label).toContain("LEFT");
+  });
 });
 
 describe("mergeStyleMaps", () => {

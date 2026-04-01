@@ -148,6 +148,25 @@ describe("google adapter public api", () => {
     expect(snapshot.slides[0]?.slideId).toBe("slide-1");
   });
 
+  it("maps bridge paragraph alignment and shape border fields to the IR snapshot", async () => {
+    const presentation = createBasePresentation();
+    const el = presentation.slides[0]!.pageElements[0]!;
+    el.lineColor = "#AABBCC";
+    el.lineWidth = 2;
+    const paras = el.text?.paragraphs;
+    if (paras?.[0]) {
+      paras[0].alignment = "LEFT";
+    }
+    const bridge = createMutableBridge(presentation);
+    setGoogleSlidesBridgeForTests(bridge.api);
+
+    const snapshot = await readDeckSnapshot();
+    const shape = snapshot.slides[0]?.shapes[0];
+    expect(shape?.paragraphs[0]?.alignment).toBe("LEFT");
+    expect(shape?.lineColor).toBe("#AABBCC");
+    expect(shape?.lineWidth).toBe(2);
+  });
+
   it("applies safe operations and rejects caution/manual ops", async () => {
     const bridge = createMutableBridge(createBasePresentation());
     setGoogleSlidesBridgeForTests(bridge.api);

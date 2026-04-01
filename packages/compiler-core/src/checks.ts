@@ -5,16 +5,18 @@ import type {
   Finding,
   GeometrySnapshot,
   NotAnalyzedReasonCode,
+  ParagraphAlignment,
   PatchOp,
   RoleV1,
   RoleStyleTokens,
   StyleMap,
   ToleranceConfig
 } from "@magistrat/shared-types";
-import { defaultToleranceConfig, getFontSizeTolerance } from "@magistrat/shared-types";
+import { defaultToleranceConfig, getFontSizeTolerance, ROLE_V1_VALUES } from "@magistrat/shared-types";
 import { runContinuityChecks } from "./continuity.js";
 import { ROLE_CONFIDENCE_MIN } from "./constants.js";
 import { stableHash } from "./hash.js";
+import { selectDominantAlignment } from "./style-map.js";
 import { computeIOU } from "./iou.js";
 
 /** BP-HYGIENE-006 — draft bracket markers and TODO markers (case-insensitive). */
@@ -57,6 +59,36 @@ function contrastRatio(l1: number, l2: number): number {
   const lighter = Math.max(l1, l2);
   const darker = Math.min(l1, l2);
   return (lighter + 0.05) / (darker + 0.05);
+}
+
+/** Normalize hex for palette membership (same contract as adapter mappers). */
+function normalizeColorHex(raw: string): string {
+  const color = raw.trim();
+  if (/^#?[0-9a-fA-F]{6}$/.test(color)) {
+    return `#${color.replace("#", "").toUpperCase()}`;
+  }
+  return color;
+}
+
+/** Unique font + fill colors from the exemplar style map (BP-COLOR-004 palette). */
+function buildExemplarColorPalette(styleMap: StyleMap): Set<string> {
+  const palette = new Set<string>();
+  for (const role of ROLE_V1_VALUES) {
+    if (role === "UNKNOWN") {
+      continue;
+    }
+    const t = styleMap[role];
+    if (!t) {
+      continue;
+    }
+    if (typeof t.fontColor === "string" && t.fontColor.length > 0) {
+      palette.add(normalizeColorHex(t.fontColor));
+    }
+    if (typeof t.fillColor === "string" && t.fillColor.length > 0) {
+      palette.add(normalizeColorHex(t.fillColor));
+    }
+  }
+  return palette;
 }
 
 export interface RunChecksResult {
@@ -243,6 +275,7 @@ export function runChecks(deck: DeckSnapshot, styleMap: StyleMap, tolerance?: To
         bulletGlyph: shape.paragraphs[0]?.bulletGlyph,
         lineSpacing: shape.paragraphs[0]?.lineSpacing,
         fillColor: shape.fillColor,
+        dominantAlignment: selectDominantAlignment(shape.paragraphs),
         skipBulletChecks: bulletChecksBlocked,
         tolerance: tol
       });
@@ -271,6 +304,46 @@ export function runChecks(deck: DeckSnapshot, styleMap: StyleMap, tolerance?: To
 
     for (const finding of evaluatePerSlideLayoutFindings(slide, tol)) {
       pushFinding(finding);
+    }
+  }
+
+  const exemplarPalette = buildExemplarColorPalette(styleMap);
+  if (exemplarPalette.size > 0) {
+    for (const slide of deck.slides) {
+      for (const shape of slide.shapes) {
+        const lw = shape.lineWidth;
+        const lc = shape.lineColor;
+        if (typeof lc !== "string" || typeof lw !== "number" || lw <= 0) {
+          continue;
+        }
+        const normalizedLine = normalizeColorHex(lc);
+        if (exemplarPalette.has(normalizedLine)) {
+          continue;
+        }
+        const roleScore = shape.inferredRoleScore ?? ROLE_CONFIDENCE_MIN.manual;
+        const findingId = `finding-${stableHash([slide.slideId, shape.objectId, "BP-COLOR-004"])}`;
+        findings.push({
+          id: findingId,
+          ruleId: "BP-COLOR-004",
+          source: "playbook",
+          slideId: slide.slideId,
+          objectId: shape.objectId,
+          role: shape.inferredRole ?? "UNKNOWN",
+          observed: { lineColor: normalizedLine, lineWidth: lw },
+          expected: { palette: [...exemplarPalette].sort((a, b) => a.localeCompare(b)) },
+          evidence: [
+            evidence("PLAYBOOK_EVIDENCE", "Shape border color is not in the slide style palette."),
+            evidence(
+              "COLOR_EVIDENCE",
+              "Off-palette borders are a common oversight — authors fix fill colors but forget the 1pt default outline."
+            )
+          ],
+          confidence: roleScore,
+          risk: "manual",
+          severity: "warn",
+          coverage: "ANALYZED"
+        });
+      }
     }
   }
 
@@ -946,6 +1019,7 @@ interface EvaluateInput {
   bulletGlyph?: string | undefined;
   lineSpacing?: number | undefined;
   fillColor?: string | undefined;
+  dominantAlignment?: ParagraphAlignment | undefined;
   skipBulletChecks: boolean;
   tolerance: ToleranceConfig;
 }
@@ -1279,6 +1353,49 @@ function evaluateTypographyAndStructure(input: EvaluateInput): {
       risk: "manual",
       severity: "warn",
       coverage: "ANALYZED"
+    });
+  }
+
+  if (
+    input.expected.alignment !== undefined &&
+    input.dominantAlignment !== undefined &&
+    input.dominantAlignment !== input.expected.alignment
+  ) {
+    const findingId = `finding-${stableHash([...baseMeta, "BP-TYPO-012"])}`;
+    const patchId = `patch-${stableHash([findingId, "SET_TEXT_ALIGNMENT"])}`;
+    findings.push({
+      id: findingId,
+      ruleId: "BP-TYPO-012",
+      source: "exemplar",
+      slideId: input.slideId,
+      objectId: input.objectId,
+      role: input.role,
+      observed: { alignment: input.dominantAlignment, role: input.role },
+      expected: { alignment: input.expected.alignment },
+      evidence: [
+        evidence("EXEMPLAR_EVIDENCE", "Text alignment differs from exemplar style for this role."),
+        evidence(
+          "TYPOGRAPHIC_EVIDENCE",
+          "Mismatched alignment creates visual dissonance — e.g., center-aligned body in a left-aligned deck."
+        )
+      ],
+      confidence: input.inferredRoleScore,
+      risk: "safe",
+      severity: "warn",
+      coverage: "ANALYZED",
+      suggestedPatchId: patchId
+    });
+
+    patches.push({
+      id: patchId,
+      op: "SET_TEXT_ALIGNMENT",
+      target: {
+        slideId: input.slideId,
+        objectId: input.objectId,
+        preconditionHash: stableHash({ alignment: input.dominantAlignment })
+      },
+      fields: { alignment: input.expected.alignment },
+      risk: "safe"
     });
   }
 

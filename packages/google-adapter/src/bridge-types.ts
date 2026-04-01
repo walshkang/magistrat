@@ -31,6 +31,8 @@ export interface GoogleBridgeParagraph {
   bulletHanging?: number;
   bulletGlyph?: string;
   lineSpacing?: number;
+  /** "LEFT" | "CENTER" | "RIGHT" | "JUSTIFIED" when provided by host */
+  alignment?: string;
   text: string;
 }
 
@@ -43,6 +45,8 @@ export interface GoogleBridgePageElement {
   zIndex?: number;
   fillColor?: string;
   fillAlpha?: number;
+  lineColor?: string;
+  lineWidth?: number;
   geometry?: {
     left?: number;
     top?: number;

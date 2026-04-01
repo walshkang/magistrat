@@ -48,6 +48,8 @@ interface ShapeLike {
   height?: number;
   rotation?: number;
   zOrderPosition?: number;
+  fill?: { foregroundColor?: string | null } | null;
+  lineFormat?: { color?: string | null; weight?: number | null } | null;
   textFrame?: TextFrameLike;
   load(select: string): void;
 }
@@ -160,6 +162,19 @@ async function readDeckSnapshot(options: OfficeReadonlyProviderOptions): Promise
       await context.sync();
 
       for (const entry of chunk) {
+        try {
+          entry.shape.load("fill/foregroundColor,lineFormat/color,lineFormat/weight");
+        } catch {
+          // Load queue rejected unsupported paths for this host
+        }
+      }
+      try {
+        await context.sync();
+      } catch {
+        // fill/lineFormat unavailable on this API version — snapshot uses geometry/text only
+      }
+
+      for (const entry of chunk) {
         const shapeSnapshot = mapShape(entry);
         const slideShapes = shapesBySlide.get(entry.slide);
         if (slideShapes) {
@@ -204,6 +219,12 @@ function mapShape(entry: ShapeEntry): ShapeSnapshot {
     typeof font?.italic === "boolean" &&
     typeof font?.color === "string";
 
+  const shapeFill = entry.shape.fill;
+  const shapeFillColor = typeof shapeFill?.foregroundColor === "string" ? shapeFill.foregroundColor : undefined;
+  const lineFormat = entry.shape.lineFormat;
+  const lineWeight = typeof lineFormat?.weight === "number" ? lineFormat.weight : 0;
+  const lineColorRaw = typeof lineFormat?.color === "string" ? lineFormat.color : undefined;
+
   const textRuns =
     hasText && rawText.length > 0
       ? [
@@ -226,6 +247,8 @@ function mapShape(entry: ShapeEntry): ShapeSnapshot {
     visible: booleanOr(entry.shape.visible, true),
     grouped: false,
     zIndex: typeof entry.shape.zOrderPosition === "number" ? entry.shape.zOrderPosition : entry.shapeIndex + 1,
+    ...(shapeFillColor ? { fillColor: normalizeColor(shapeFillColor) } : {}),
+    ...(lineWeight > 0 && lineColorRaw ? { lineColor: normalizeColor(lineColorRaw), lineWidth: lineWeight } : {}),
     textRuns,
     paragraphs:
       hasText && rawText.length > 0

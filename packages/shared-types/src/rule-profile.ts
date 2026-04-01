@@ -29,6 +29,7 @@ export type CandidateRuleProperty =
   | "bulletIndent"
   | "bulletGlyph"
   | "fillColor"
+  | "alignment"
   | "geometryBand";
 
 /**
