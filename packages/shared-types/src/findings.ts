@@ -8,7 +8,8 @@ export const EVIDENCE_TYPES = [
   "GEOMETRIC_EVIDENCE",
   "HYGIENE_EVIDENCE",
   "REFERENTIAL_EVIDENCE",
-  "COLOR_EVIDENCE"
+  "COLOR_EVIDENCE",
+  "TEXT_STRING_EVIDENCE"
 ] as const;
 
 export type EvidenceType = (typeof EVIDENCE_TYPES)[number];

@@ -9,8 +9,8 @@
 
 ## Implementation Roadmap
 
-### Phase 8B — Buildable Now (no IR changes)
-Rules ready for Cursor implementation in one batch:
+### Phase 8B — Implemented (2026-03-31)
+Shipped in `checks.ts` / `continuity.ts` with tests in `phase8b-rules.test.ts`:
 - **BP-TYPO-009** — Bullet Punctuation Consistency
 - **BP-TYPO-010** — Double Space Detection
 - **BP-TYPO-011** — Title Terminal Punctuation
@@ -141,6 +141,39 @@ Each rule follows this structure:
 - **Why it matters:** Inconsistent capitalization across slide titles or section headers signals a Frankenstein deck assembled from multiple authors/sources.
 - **Evidence:** TEXT_STRING_EVIDENCE, REFERENTIAL_EVIDENCE
 - **Notes:** Heuristic — classifies each title as Title Case, UPPER CASE, or sentence case, then flags if the dominant style isn't used consistently. Proper nouns and acronyms may cause false positives; needs a short exclusion list.
+
+### BP-TYPO-009 — Bullet Punctuation Consistency
+- **Status:** active
+- **Source:** continuity
+- **Severity:** warn
+- **Risk:** manual
+- **Auto-fix:** no
+- **Type:** heuristic
+- **What it checks:** Classifies terminal punctuation on level-0 bullets (`paragraph.level === 0`); per text box flags minority when PERIOD and NONE mix; deck-wide flags boxes whose dominant style opposes the deck when ≥60% of classifiable boxes (≥3) share one style
+- **Why it matters:** Mixed terminal punctuation signals copy-pasted content from multiple authors.
+- **Evidence:** STRUCTURAL_EVIDENCE, TEXT_STRING_EVIDENCE
+- **Notes:** Ignores sub-bullets (level ≥ 1). Skips boxes with fewer than two level-0 bullets with non-empty text.
+
+### BP-TYPO-010 — Double Space Detection
+- **Status:** active
+- **Source:** playbook
+- **Severity:** info
+- **Risk:** safe
+- **Auto-fix:** no
+- **What it checks:** Two or more consecutive spaces in trimmed text runs (`/ {2,}/`)
+- **Why it matters:** Double spaces break justification and alignment; legacy typist habit from fixed-width typesetting.
+- **Evidence:** PLAYBOOK_EVIDENCE, TEXT_STRING_EVIDENCE
+- **Notes:** One finding per shape. Leading/trailing runs of spaces are trimmed before scan.
+
+### BP-TYPO-011 — Title Terminal Punctuation
+- **Status:** active
+- **Source:** playbook
+- **Severity:** warn
+- **Risk:** safe
+- **Auto-fix:** no
+- **What it checks:** TITLE-role shape whose paragraph text (space-joined, trimmed) ends with `.`; skips `?` and `!`
+- **Why it matters:** Action titles in consulting style avoid terminal periods; common paste artifact from Word.
+- **Evidence:** PLAYBOOK_EVIDENCE, TEXT_STRING_EVIDENCE
 
 ---
 
@@ -327,6 +360,37 @@ Each rule follows this structure:
 - **Evidence:** EXEMPLAR_EVIDENCE, GEOMETRIC_EVIDENCE
 - **Notes:** Margin threshold derived from exemplar boundary scan — not a hardcoded value. Full-bleed images (dimensions matching slide) are excluded.
 
+### BP-LAYOUT-007 — Left-Edge Misalignment ("Jitter" Check)
+- **Status:** active
+- **Source:** playbook
+- **Severity:** warn
+- **Risk:** caution
+- **Auto-fix:** no
+- **What it checks:** Per slide, clusters shape `geometry.left` (excluding full-bleed: width and height both >80% of slide); uses largest cluster (tie: leftmost); flags shapes where \(0 < |x - modeX| \leq\) `alignmentJitterThreshold` (default 5pt)
+- **Why it matters:** Sub-point jitter breaks the invisible alignment grid.
+- **Evidence:** PLAYBOOK_EVIDENCE, GEOMETRIC_EVIDENCE
+
+### BP-LAYOUT-008 — Horizontal Distribution Consistency
+- **Status:** active
+- **Source:** playbook
+- **Severity:** warn
+- **Risk:** caution
+- **Auto-fix:** no
+- **What it checks:** Union-finds shapes in the same Y-band (`distributionYBandThreshold`, default 20pt) with width/height within 20%; for groups of 3+ sorted by `x`, flags shapes adjacent to gaps that deviate from mean gap by more than `distributionGapTolerance` (default 4pt)
+- **Why it matters:** Uneven column spacing in multi-column layouts looks rushed.
+- **Evidence:** GEOMETRIC_EVIDENCE, PLAYBOOK_EVIDENCE
+
+### BP-LAYOUT-009 — Slide Text Density
+- **Status:** active
+- **Source:** playbook
+- **Severity:** info
+- **Risk:** manual
+- **Auto-fix:** no
+- **What it checks:** Sums bounding-box area of text-bearing shapes (non-empty paragraphs); excludes `IMAGE` and `CHART` shape types. Compares to safe-zone area \((slideW - 2m)(slideH - 2m)\) with `textDensityMarginPt` (default 36pt); flags when ratio exceeds `textDensityMaxRatio` (default 0.6)
+- **Why it matters:** Wall-of-text slides violate cognitive-load limits.
+- **Evidence:** PLAYBOOK_EVIDENCE, GEOMETRIC_EVIDENCE
+- **Notes:** Slide-level finding (no `objectId`). Canvas defaults 720×540pt if dimensions missing.
+
 ---
 
 ## Continuity (Cross-Slide)
@@ -446,54 +510,6 @@ Each rule follows this structure:
 
 ### Tier 1 — High Signal
 
-### BP-TYPO-011 — Title Terminal Punctuation
-- **Status:** proposed
-- **Source:** playbook
-- **Severity:** warn
-- **Risk:** safe
-- **Auto-fix:** yes (REMOVE_TERMINAL_PUNCTUATION)
-- **Type:** deterministic
-- **What it checks:** Scans the TITLE-role shape text for a trailing period
-- **Why it matters:** Standard consulting style: action titles don't end with periods. Common copy-paste error from Word docs.
-- **Evidence:** PLAYBOOK_EVIDENCE, TEXT_STRING_EVIDENCE
-- **Notes:** Question marks are acceptable exceptions ("Why did Q3 Revenue fall?"). Auto-fix trims the trailing period only. Buildable now.
-
-### BP-LAYOUT-008 — Horizontal Distribution Consistency
-- **Status:** proposed
-- **Source:** playbook
-- **Severity:** warn
-- **Risk:** caution
-- **Auto-fix:** yes (DISTRIBUTE_HORIZONTALLY)
-- **Type:** deterministic
-- **What it checks:** Groups 3+ shapes sharing the same Y-band and similar width/height; checks that horizontal gaps between them are equal within tolerance
-- **Why it matters:** 3- and 4-column layouts are ubiquitous in exec decks. A 4pt gap variance between columns looks rushed and breaks the grid.
-- **Evidence:** GEOMETRIC_EVIDENCE
-- **Notes:** Group similarity by Y-band overlap and aspect ratio. Auto-fix averages the gaps and repositions inner shapes. Caution risk — repositioning breaks intentional asymmetric layouts. Buildable now.
-
-### BP-TYPO-009 — Bullet Punctuation Consistency
-- **Status:** proposed
-- **Source:** continuity
-- **Severity:** warn
-- **Risk:** manual
-- **Auto-fix:** no
-- **Type:** heuristic
-- **What it checks:** Scans terminal characters of level-0 bullet items within each text block and across the deck, flagging mixed punctuation (e.g., some ending with `.`, some bare)
-- **Why it matters:** Mixed terminal punctuation is a glaring sign of copy-pasted content from multiple authors. Execs zero in on this kind of syntactic sloppiness.
-- **Evidence:** TEXT_STRING_EVIDENCE, STRUCTURAL_EVIDENCE
-- **Notes:** Majority-vote per text box first, then deck-wide. Ignore sub-bullets (level ≥ 1) — they legitimately follow different rules. Buildable now (no IR changes).
-
-### BP-LAYOUT-007 — Left-Edge Misalignment ("Jitter" Check)
-- **Status:** proposed
-- **Source:** playbook
-- **Severity:** warn
-- **Risk:** caution
-- **Auto-fix:** yes (SNAP_TO_X)
-- **Type:** deterministic
-- **What it checks:** Groups text boxes and shapes by approximate X-coordinate (within a 5pt cluster threshold); flags objects whose left edge deviates from the group mode by 1–5pt
-- **Why it matters:** The human eye catches jitter instantly when scanning down a slide. A 2pt drift breaks the invisible grid that makes a deck look deliberate.
-- **Evidence:** GEOMETRIC_EVIDENCE
-- **Notes:** Auto-fix snaps outlier X to the mode of the cluster. Caution risk — snapping may be wrong if objects are intentionally offset (e.g., indented callouts). Buildable now (no IR changes).
-
 ### BP-TABLE-001 — Table Header Fill Color
 - **Status:** proposed
 - **Source:** exemplar
@@ -582,18 +598,6 @@ Each rule follows this structure:
 
 ### Tier 2 — Good to Have
 
-### BP-LAYOUT-009 — Slide Text Density
-- **Status:** proposed
-- **Source:** playbook
-- **Severity:** info
-- **Risk:** manual
-- **Auto-fix:** no
-- **Type:** deterministic
-- **What it checks:** Calculates total area of all text shape bounding boxes as a fraction of the safe-zone slide area; flags slides exceeding a configurable threshold (default 60%)
-- **Why it matters:** "Wall of text" slides violate cognitive load principles. Deterministic density flag lets the author decide whether to split — without needing content analysis.
-- **Evidence:** GEOMETRIC_EVIDENCE
-- **Notes:** Exclude image and chart shapes from area calculation. Safe-zone area = slide canvas minus standard margins. Threshold configurable in ToleranceConfig. Buildable now.
-
 ### BP-TYPO-012 — Text Alignment Mismatch
 - **Status:** proposed
 - **Source:** exemplar
@@ -605,18 +609,6 @@ Each rule follows this structure:
 - **Why it matters:** A center-aligned body text box in a left-aligned deck creates immediate visual dissonance.
 - **Evidence:** EXEMPLAR_EVIDENCE, TYPOGRAPHIC_EVIDENCE
 - **Notes:** Blocked — `ParagraphSnapshot` has no `alignment` field. Needs IR extension before implementation.
-
-### BP-TYPO-010 — Double Space Detection
-- **Status:** proposed
-- **Source:** playbook
-- **Severity:** info
-- **Risk:** safe
-- **Auto-fix:** yes (REPLACE_DOUBLE_SPACE)
-- **Type:** deterministic
-- **What it checks:** Scans all text runs for two or more consecutive space characters
-- **Why it matters:** Double spaces after periods are an outdated typist convention that breaks text alignment and justification on modern slides.
-- **Evidence:** PLAYBOOK_EVIDENCE, TEXT_STRING_EVIDENCE
-- **Notes:** Highly reliable regex. Auto-fix is universally safe. Buildable now (no IR changes).
 
 ### BP-CHART-001 — Chart Series Color Off-Palette
 - **Status:** proposed
@@ -693,6 +685,22 @@ Each rule follows this structure:
 ---
 
 ## Changelog
+
+### 2026-03-31 — Phase 8B Implementation
+
+**Implemented (6 rules, no IR changes required):**
+- **BP-TYPO-009** — Bullet Punctuation Consistency (`continuity.ts`): per-box PERIOD/NONE mix; deck-wide when ≥3 classifiable boxes and ≥60% deck majority. `TEXT_STRING_EVIDENCE` added to `EVIDENCE_TYPES`.
+- **BP-TYPO-010** — Double Space Detection: trimmed text runs, `/ {2,}/`, one finding per shape.
+- **BP-TYPO-011** — Title Terminal Punctuation: TITLE role, paragraph text joined; `?`/`!` exempt.
+- **BP-LAYOUT-007** — Left-edge jitter: cluster by `alignmentJitterThreshold` (default 5pt), exclude full-bleed shapes.
+- **BP-LAYOUT-008** — Horizontal distribution: Y-band + 20% size similarity, gap mean vs `distributionGapTolerance` (default 4pt).
+- **BP-LAYOUT-009** — Slide text density: safe-zone margins via `textDensityMarginPt` / `textDensityMaxRatio`. Tolerance fields in `ToleranceConfig`.
+
+**Tests:** `packages/compiler-core/tests/phase8b-rules.test.ts`
+
+**`PLAYBOOK_RULE_COUNT`:** 26 → 31 (+5 playbook-sourced; TYPO-009 is continuity-only).
+
+---
 
 ### 2026-03-31 — Phase 8A Implementation
 

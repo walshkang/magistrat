@@ -43,6 +43,21 @@ export interface ToleranceConfig {
 
   /** WCAG 1.4.3 minimum contrast ratio for opaque text vs solid fill (BP-WCAG-001). Default 4.5. */
   wcagMinContrastRatio: number;
+
+  /** BP-LAYOUT-007: max distance (pt) for clustering left edges vs mode. Default 5. */
+  alignmentJitterThreshold: number;
+
+  /** BP-LAYOUT-008: Y-band for grouping shapes (top edges within this distance, pt). Default 20. */
+  distributionYBandThreshold: number;
+
+  /** BP-LAYOUT-008: max gap deviation from mean (pt). Default 4. */
+  distributionGapTolerance: number;
+
+  /** BP-LAYOUT-009: max ratio of summed text shape area to safe-zone area. Default 0.6. */
+  textDensityMaxRatio: number;
+
+  /** BP-LAYOUT-009: margin (pt) subtracted from slide edges for safe zone. Default 36 (0.5in). */
+  textDensityMarginPt: number;
 }
 
 /** Returns the default tolerance config matching current hardcoded values. */
@@ -60,7 +75,12 @@ export function defaultToleranceConfig(): ToleranceConfig {
     canvas: { width: 720, height: 405 },
     positionPt: 6,
     geometryMicroSnapDeltaPt: 0.5,
-    wcagMinContrastRatio: 4.5
+    wcagMinContrastRatio: 4.5,
+    alignmentJitterThreshold: 5,
+    distributionYBandThreshold: 20,
+    distributionGapTolerance: 4,
+    textDensityMaxRatio: 0.6,
+    textDensityMarginPt: 36
   };
 }
 

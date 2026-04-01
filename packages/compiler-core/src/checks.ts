@@ -268,6 +268,10 @@ export function runChecks(deck: DeckSnapshot, styleMap: StyleMap, tolerance?: To
     for (const finding of evaluateDuplicateOverlaps(slide, tol)) {
       pushFinding(finding);
     }
+
+    for (const finding of evaluatePerSlideLayoutFindings(slide, tol)) {
+      pushFinding(finding);
+    }
   }
 
   for (const finding of collectGroupSafetyFindings(deck, suggestedPatches)) {
@@ -303,6 +307,312 @@ export function runChecks(deck: DeckSnapshot, styleMap: StyleMap, tolerance?: To
     coverage,
     suggestedPatches
   };
+}
+
+const DOUBLE_SPACE_RE = / {2,}/;
+
+function findFirstDoubleSpaceExcerpt(
+  shape: DeckSnapshot["slides"][number]["shapes"][number]
+): string | null {
+  for (const run of shape.textRuns) {
+    const t = run.text.trim();
+    const m = DOUBLE_SPACE_RE.exec(t);
+    if (m) {
+      const idx = m.index ?? 0;
+      const half = 20;
+      const start = Math.max(0, idx - half);
+      const end = Math.min(t.length, idx + m[0].length + half);
+      let excerpt = t.slice(start, end);
+      if (excerpt.length > 40) {
+        excerpt = excerpt.slice(0, 40);
+      }
+      return excerpt;
+    }
+  }
+  return null;
+}
+
+function widthHeightSimilar(
+  a: GeometrySnapshot,
+  b: GeometrySnapshot,
+  ratioMin = 0.8
+): boolean {
+  if (a.width <= 0 || b.width <= 0 || a.height <= 0 || b.height <= 0) {
+    return false;
+  }
+  const wr = a.width < b.width ? a.width / b.width : b.width / a.width;
+  const hr = a.height < b.height ? a.height / b.height : b.height / a.height;
+  return wr >= ratioMin && hr >= ratioMin;
+}
+
+function evaluatePerSlideLayoutFindings(
+  slide: DeckSnapshot["slides"][number],
+  tol: ToleranceConfig
+): Finding[] {
+  const findings: Finding[] = [];
+  const slideW = slide.slideWidth > 0 ? slide.slideWidth : 720;
+  const slideH = slide.slideHeight > 0 ? slide.slideHeight : 540;
+
+  const layoutCandidates = slide.shapes.filter((s) => {
+    if (!s.supportedForAnalysis) {
+      return false;
+    }
+    const g = s.geometry;
+    const fullBleed = g.width > 0.8 * slideW && g.height > 0.8 * slideH;
+    return !fullBleed;
+  });
+
+  if (layoutCandidates.length >= 2) {
+    const n = layoutCandidates.length;
+    const parent = Array.from({ length: n }, (_, i) => i);
+    const rank = new Array(n).fill(0);
+    const find = (i: number): number => {
+      if (parent[i] !== i) {
+        parent[i] = find(parent[i]!);
+      }
+      return parent[i]!;
+    };
+    const union = (a: number, b: number): void => {
+      let ra = find(a);
+      let rb = find(b);
+      if (ra === rb) {
+        return;
+      }
+      if (rank[ra]! < rank[rb]!) {
+        [ra, rb] = [rb, ra];
+      }
+      parent[rb!] = ra!;
+      if (rank[ra] === rank[rb]) {
+        rank[ra] += 1;
+      }
+    };
+    const thr = tol.alignmentJitterThreshold;
+    for (let i = 0; i < n; i++) {
+      for (let j = i + 1; j < n; j++) {
+        const li = layoutCandidates[i]!.geometry.left;
+        const lj = layoutCandidates[j]!.geometry.left;
+        if (Math.abs(li - lj) <= thr) {
+          union(i, j);
+        }
+      }
+    }
+    const groups = new Map<number, number[]>();
+    for (let i = 0; i < n; i++) {
+      const r = find(i);
+      const list = groups.get(r) ?? [];
+      list.push(i);
+      groups.set(r, list);
+    }
+    let bestIdxs: number[] | null = null;
+    let bestSize = -1;
+    let bestMinLeft = Infinity;
+    for (const idxs of groups.values()) {
+      const minL = Math.min(...idxs.map((i) => layoutCandidates[i]!.geometry.left));
+      if (
+        idxs.length > bestSize ||
+        (idxs.length === bestSize && minL < bestMinLeft)
+      ) {
+        bestSize = idxs.length;
+        bestMinLeft = minL;
+        bestIdxs = idxs;
+      }
+    }
+    if (bestIdxs && bestIdxs.length > 0) {
+      let sum = 0;
+      for (const i of bestIdxs) {
+        sum += layoutCandidates[i]!.geometry.left;
+      }
+      const modeX = sum / bestIdxs.length;
+      for (const sh of layoutCandidates) {
+        const x = sh.geometry.left;
+        const drift = x - modeX;
+        const absD = Math.abs(drift);
+        if (absD > 1e-6 && absD <= thr) {
+          const roleScore = sh.inferredRoleScore ?? ROLE_CONFIDENCE_MIN.manual;
+          const findingId = `finding-${stableHash([slide.slideId, sh.objectId, "BP-LAYOUT-007"])}`;
+          findings.push({
+            id: findingId,
+            ruleId: "BP-LAYOUT-007",
+            source: "playbook",
+            slideId: slide.slideId,
+            objectId: sh.objectId,
+            role: sh.inferredRole ?? "UNKNOWN",
+            observed: { x, drift, modeX },
+            expected: { modeX },
+            evidence: [
+              evidence(
+                "PLAYBOOK_EVIDENCE",
+                "Left edge deviates from the dominant alignment grid by a small amount."
+              ),
+              evidence(
+                "GEOMETRIC_EVIDENCE",
+                "Sub-5pt jitter breaks the invisible grid — the human eye catches it during presentation."
+              )
+            ],
+            confidence: roleScore,
+            risk: "caution",
+            severity: "warn",
+            coverage: "ANALYZED"
+          });
+        }
+      }
+    }
+  }
+
+  const distShapes = slide.shapes.filter((s) => s.supportedForAnalysis);
+  const yBand = tol.distributionYBandThreshold;
+  const m = distShapes.length;
+  if (m >= 3) {
+    const parent2 = Array.from({ length: m }, (_, i) => i);
+    const rank2 = new Array(m).fill(0);
+    const find2 = (i: number): number => {
+      if (parent2[i] !== i) {
+        parent2[i] = find2(parent2[i]!);
+      }
+      return parent2[i]!;
+    };
+    const union2 = (a: number, b: number): void => {
+      let ra = find2(a);
+      let rb = find2(b);
+      if (ra === rb) {
+        return;
+      }
+      if (rank2[ra]! < rank2[rb]!) {
+        [ra, rb] = [rb, ra];
+      }
+      parent2[rb!] = ra!;
+      if (rank2[ra] === rank2[rb]) {
+        rank2[ra] += 1;
+      }
+    };
+    for (let i = 0; i < m; i++) {
+      for (let j = i + 1; j < m; j++) {
+        const ai = distShapes[i]!;
+        const aj = distShapes[j]!;
+        if (Math.abs(ai.geometry.top - aj.geometry.top) > yBand) {
+          continue;
+        }
+        if (!widthHeightSimilar(ai.geometry, aj.geometry)) {
+          continue;
+        }
+        union2(i, j);
+      }
+    }
+    const groups2 = new Map<number, number[]>();
+    for (let i = 0; i < m; i++) {
+      const r = find2(i);
+      const list = groups2.get(r) ?? [];
+      list.push(i);
+      groups2.set(r, list);
+    }
+    const gapTol = tol.distributionGapTolerance;
+    const emitted008 = new Set<string>();
+    for (const idxs of groups2.values()) {
+      if (idxs.length < 3) {
+        continue;
+      }
+      const sorted = [...idxs].sort((a, b) => {
+        const la = distShapes[a]!.geometry.left;
+        const lb = distShapes[b]!.geometry.left;
+        if (la !== lb) {
+          return la - lb;
+        }
+        return distShapes[a]!.objectId.localeCompare(distShapes[b]!.objectId);
+      });
+      const shapesRow = sorted.map((i) => distShapes[i]!);
+      const gaps: number[] = [];
+      for (let k = 0; k < shapesRow.length - 1; k++) {
+        const a = shapesRow[k]!;
+        const b = shapesRow[k + 1]!;
+        gaps.push(b.geometry.left - (a.geometry.left + a.geometry.width));
+      }
+      const meanGap = gaps.reduce((acc, g) => acc + g, 0) / gaps.length;
+      for (let k = 0; k < gaps.length; k++) {
+        const g = gaps[k]!;
+        if (Math.abs(g - meanGap) <= gapTol) {
+          continue;
+        }
+        for (const sh of [shapesRow[k]!, shapesRow[k + 1]!]) {
+          if (emitted008.has(sh.objectId)) {
+            continue;
+          }
+          emitted008.add(sh.objectId);
+          const roleScore = sh.inferredRoleScore ?? ROLE_CONFIDENCE_MIN.manual;
+          const findingId = `finding-${stableHash([slide.slideId, sh.objectId, "BP-LAYOUT-008"])}`;
+          findings.push({
+            id: findingId,
+            ruleId: "BP-LAYOUT-008",
+            source: "playbook",
+            slideId: slide.slideId,
+            objectId: sh.objectId,
+            role: sh.inferredRole ?? "UNKNOWN",
+            observed: { gap: g, groupSize: shapesRow.length },
+            expected: { meanGap },
+            evidence: [
+              evidence("GEOMETRIC_EVIDENCE", "Horizontal gap to adjacent shape in column group is unequal."),
+              evidence(
+                "PLAYBOOK_EVIDENCE",
+                "Unequal column spacing in a multi-column layout breaks the grid and looks rushed."
+              )
+            ],
+            confidence: roleScore,
+            risk: "caution",
+            severity: "warn",
+            coverage: "ANALYZED"
+          });
+        }
+      }
+    }
+  }
+
+  const margin = tol.textDensityMarginPt;
+  const innerW = Math.max(0, slideW - 2 * margin);
+  const innerH = Math.max(0, slideH - 2 * margin);
+  const safeArea = innerW * innerH;
+  if (safeArea > 1e-6) {
+    let totalTextArea = 0;
+    for (const s of slide.shapes) {
+      if (!s.supportedForAnalysis) {
+        continue;
+      }
+      if (s.shapeType === "IMAGE" || s.shapeType === "CHART") {
+        continue;
+      }
+      const hasText = s.paragraphs.some((p) => p.text.trim().length > 0);
+      if (!hasText) {
+        continue;
+      }
+      totalTextArea += s.geometry.width * s.geometry.height;
+    }
+    const densityRatio = totalTextArea / safeArea;
+    if (densityRatio > tol.textDensityMaxRatio) {
+      const findingId = `finding-${stableHash([slide.slideId, "BP-LAYOUT-009"])}`;
+      findings.push({
+        id: findingId,
+        ruleId: "BP-LAYOUT-009",
+        source: "playbook",
+        slideId: slide.slideId,
+        observed: {
+          densityRatio: Math.round(densityRatio * 100) / 100,
+          totalTextAreaPt2: totalTextArea
+        },
+        expected: { maxDensityRatio: tol.textDensityMaxRatio },
+        evidence: [
+          evidence("PLAYBOOK_EVIDENCE", "Text area exceeds density threshold for this slide."),
+          evidence(
+            "GEOMETRIC_EVIDENCE",
+            "Wall-of-text slides violate cognitive load principles — consider splitting or reducing content."
+          )
+        ],
+        confidence: 1,
+        risk: "manual",
+        severity: "info",
+        coverage: "ANALYZED"
+      });
+    }
+  }
+
+  return findings;
 }
 
 function evaluateObjectHygiene(
@@ -365,6 +675,64 @@ function evaluateObjectHygiene(
       severity: "error",
       coverage: "ANALYZED"
     });
+  }
+
+  const doubleSpaceExcerpt = findFirstDoubleSpaceExcerpt(shape);
+  if (doubleSpaceExcerpt) {
+    const findingId = `finding-${stableHash([slideId, objectId, "BP-TYPO-010"])}`;
+    findings.push({
+      id: findingId,
+      ruleId: "BP-TYPO-010",
+      source: "playbook",
+      slideId,
+      objectId,
+      role,
+      observed: { excerpt: doubleSpaceExcerpt },
+      expected: { pattern: "no_double_spaces" },
+      evidence: [
+        evidence("PLAYBOOK_EVIDENCE", "Double or multiple consecutive spaces found in text."),
+        evidence(
+          "TEXT_STRING_EVIDENCE",
+          "Double spaces break text justification and alignment; an outdated typist convention."
+        )
+      ],
+      confidence: roleScore,
+      risk: "safe",
+      severity: "info",
+      coverage: "ANALYZED"
+    });
+  }
+
+  if (role === "TITLE") {
+    const titleConcat = shape.paragraphs.map((p) => p.text).join(" ").trim();
+    if (titleConcat.length > 0) {
+      const endsExc = titleConcat.endsWith("?") || titleConcat.endsWith("!");
+      if (!endsExc && titleConcat.endsWith(".")) {
+        const findingId = `finding-${stableHash([slideId, objectId, "BP-TYPO-011"])}`;
+        const observedTitle = titleConcat.length > 120 ? titleConcat.slice(0, 120) : titleConcat;
+        findings.push({
+          id: findingId,
+          ruleId: "BP-TYPO-011",
+          source: "playbook",
+          slideId,
+          objectId,
+          role,
+          observed: { titleText: observedTitle },
+          expected: { terminalPunctuation: "none_or_question_or_exclamation" },
+          evidence: [
+            evidence("PLAYBOOK_EVIDENCE", "Action title ends with a terminal period."),
+            evidence(
+              "TEXT_STRING_EVIDENCE",
+              "Standard consulting style: action titles don't end with periods — common copy-paste error from Word docs."
+            )
+          ],
+          confidence: roleScore,
+          risk: "safe",
+          severity: "warn",
+          coverage: "ANALYZED"
+        });
+      }
+    }
   }
 
   const isPotentialGhost =

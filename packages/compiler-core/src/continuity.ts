@@ -1,4 +1,4 @@
-import type { DeckSnapshot, Finding, ShapeSnapshot } from "@magistrat/shared-types";
+import type { DeckSnapshot, Finding, RoleV1, ShapeSnapshot } from "@magistrat/shared-types";
 import { stableHash } from "./hash.js";
 
 const AGENDA_KEYWORDS = ["agenda", "contents", "table of contents", "toc"] as const;
@@ -95,6 +95,7 @@ export function runContinuityChecks(deck: DeckSnapshot): RunContinuityChecksResu
   findings.push(...collectTitleCapitalizationFindings(deck));
   findings.push(...collectPageNumberFindings(deck));
   findings.push(...collectDateNumberFormatFindings(deck));
+  findings.push(...collectBulletPunctuationFindings(deck));
 
   return {
     findings,
@@ -806,6 +807,229 @@ function emitDominantMinorityFindings(
       coverage: "ANALYZED"
     });
   }
+  return findings;
+}
+
+type BulletTerminalStyle = "PERIOD" | "NONE" | "OTHER";
+
+function classifyBulletTerminal(text: string): BulletTerminalStyle | null {
+  const t = text.trim();
+  if (t.length === 0) {
+    return null;
+  }
+  const last = t[t.length - 1]!;
+  if (last === ".") {
+    return "PERIOD";
+  }
+  if (/[a-zA-Z0-9]$/u.test(t)) {
+    return "NONE";
+  }
+  return "OTHER";
+}
+
+function dominantPeriodNone(periodCount: number, noneCount: number): "PERIOD" | "NONE" {
+  if (periodCount > noneCount) {
+    return "PERIOD";
+  }
+  if (noneCount > periodCount) {
+    return "NONE";
+  }
+  return "PERIOD";
+}
+
+/** BP-TYPO-009 — bullet terminal punctuation (per text box + optional deck-wide). */
+function collectBulletPunctuationFindings(deck: DeckSnapshot): Finding[] {
+  const findings: Finding[] = [];
+  const orderedSlides = [...deck.slides].sort((a, b) => a.index - b.index || a.slideId.localeCompare(b.slideId));
+
+  const boxSummaries: { slideId: string; objectId: string; role: RoleV1 | undefined; dominant: "PERIOD" | "NONE" }[] =
+    [];
+
+  for (const slide of orderedSlides) {
+    for (const shape of slide.shapes) {
+      if (!shape.supportedForAnalysis) {
+        continue;
+      }
+
+      const level0NonEmpty = shape.paragraphs.filter((p) => p.level === 0 && p.text.trim().length > 0);
+      if (level0NonEmpty.length < 2) {
+        continue;
+      }
+
+      const styles: BulletTerminalStyle[] = [];
+      for (const p of level0NonEmpty) {
+        const c = classifyBulletTerminal(p.text);
+        if (c !== null) {
+          styles.push(c);
+        }
+      }
+      if (styles.length < 2) {
+        continue;
+      }
+
+      let periodCount = 0;
+      let noneCount = 0;
+      for (const s of styles) {
+        if (s === "PERIOD") {
+          periodCount += 1;
+        } else if (s === "NONE") {
+          noneCount += 1;
+        }
+      }
+
+      const hasMix = periodCount > 0 && noneCount > 0;
+      if (hasMix) {
+        const dominant = dominantPeriodNone(periodCount, noneCount);
+        const minorityStyle: "PERIOD" | "NONE" = dominant === "PERIOD" ? "NONE" : "PERIOD";
+        let sampleText = "";
+        for (const p of level0NonEmpty) {
+          const c = classifyBulletTerminal(p.text);
+          if (c === minorityStyle) {
+            sampleText = p.text.trim();
+            if (sampleText.length > 80) {
+              sampleText = sampleText.slice(0, 80);
+            }
+            break;
+          }
+        }
+        const findingId = `finding-${stableHash([slide.slideId, shape.objectId, "BP-TYPO-009", "box_mix"])}`;
+        findings.push({
+          id: findingId,
+          ruleId: "BP-TYPO-009",
+          source: "continuity",
+          slideId: slide.slideId,
+          objectId: shape.objectId,
+          role: shape.inferredRole ?? "UNKNOWN",
+          observed: {
+            terminalStyle: minorityStyle,
+            sampleText,
+            scope: "text_box"
+          },
+          expected: { dominantStyle: dominant },
+          evidence: [
+            {
+              type: "STRUCTURAL_EVIDENCE",
+              summary: "Bullet terminal punctuation differs from the dominant convention in this text block."
+            },
+            {
+              type: "TEXT_STRING_EVIDENCE",
+              summary: "Mixed terminal punctuation signals copy-paste from multiple authors."
+            }
+          ],
+          confidence: 1,
+          risk: "manual",
+          severity: "warn",
+          coverage: "ANALYZED"
+        });
+      }
+
+      if (periodCount === 0 && noneCount === 0) {
+        continue;
+      }
+      const dominant = dominantPeriodNone(periodCount, noneCount);
+      boxSummaries.push({
+        slideId: slide.slideId,
+        objectId: shape.objectId,
+        role: shape.inferredRole,
+        dominant
+      });
+    }
+  }
+
+  if (boxSummaries.length < 3) {
+    return findings;
+  }
+
+  const totalBoxes = boxSummaries.length;
+  let deckPeriodBoxes = 0;
+  let deckNoneBoxes = 0;
+  for (const b of boxSummaries) {
+    if (b.dominant === "PERIOD") {
+      deckPeriodBoxes += 1;
+    } else {
+      deckNoneBoxes += 1;
+    }
+  }
+
+  const deckSharePeriod = deckPeriodBoxes / totalBoxes;
+  const deckShareNone = deckNoneBoxes / totalBoxes;
+
+  let deckDominant: "PERIOD" | "NONE" | null = null;
+  if (deckSharePeriod >= 0.6 && deckPeriodBoxes > deckNoneBoxes) {
+    deckDominant = "PERIOD";
+  } else if (deckShareNone >= 0.6 && deckNoneBoxes > deckPeriodBoxes) {
+    deckDominant = "NONE";
+  }
+
+  if (deckDominant === null) {
+    return findings;
+  }
+
+  const seenDeck = new Set<string>();
+  for (const b of boxSummaries) {
+    if (b.dominant === deckDominant) {
+      continue;
+    }
+    const key = `${b.slideId}:${b.objectId}`;
+    if (seenDeck.has(key)) {
+      continue;
+    }
+    seenDeck.add(key);
+
+    let sampleText = "";
+    outer: for (const slide of orderedSlides) {
+      if (slide.slideId !== b.slideId) {
+        continue;
+      }
+      for (const shape of slide.shapes) {
+        if (shape.objectId !== b.objectId) {
+          continue;
+        }
+        for (const p of shape.paragraphs) {
+          if (p.level !== 0 || p.text.trim().length === 0) {
+            continue;
+          }
+          sampleText = p.text.trim();
+          if (sampleText.length > 80) {
+            sampleText = sampleText.slice(0, 80);
+          }
+          break outer;
+        }
+      }
+    }
+
+    const findingId = `finding-${stableHash([b.slideId, b.objectId, "BP-TYPO-009", "deck_wide", deckDominant])}`;
+    findings.push({
+      id: findingId,
+      ruleId: "BP-TYPO-009",
+      source: "continuity",
+      slideId: b.slideId,
+      objectId: b.objectId,
+      role: b.role ?? "UNKNOWN",
+      observed: {
+        terminalStyle: b.dominant,
+        sampleText,
+        scope: "deck",
+        deckDominantStyle: deckDominant
+      },
+      expected: { dominantStyle: deckDominant },
+      evidence: [
+        {
+          type: "STRUCTURAL_EVIDENCE",
+          summary: "Bullet terminal punctuation differs from the dominant convention in this text block."
+        },
+        {
+          type: "TEXT_STRING_EVIDENCE",
+          summary: "Mixed terminal punctuation signals copy-paste from multiple authors."
+        }
+      ],
+      confidence: 1,
+      risk: "manual",
+      severity: "warn",
+      coverage: "ANALYZED"
+    });
+  }
+
   return findings;
 }
 
