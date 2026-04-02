@@ -51,6 +51,7 @@ export function App() {
     applySafe,
     applyForFinding,
     loadProfileFromJson,
+    applyToMaster,
     message,
     setMessage
   } = useAnalysis({
@@ -558,6 +559,24 @@ export function App() {
                   title="Fix or ignore all findings before ratifying"
                 >
                   Ratify style
+                </button>
+              ) : null}
+              {analysisState ? (
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() => {
+                    if (
+                      window.confirm(
+                        "This will restyle your slide master placeholders to match the exemplar. " +
+                          "This change cannot be undone from the sidebar — use Google Slides version history to revert. Continue?"
+                      )
+                    ) {
+                      void applyToMaster();
+                    }
+                  }}
+                >
+                  Apply to Master
                 </button>
               ) : null}
             </div>

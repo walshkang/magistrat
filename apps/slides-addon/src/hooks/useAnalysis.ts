@@ -5,16 +5,20 @@ import {
   inferCandidateRules,
   inferRoles,
   mergeStyleMaps,
+  planMasterPatches,
   planPatches,
   runChecks,
   scoreExemplarHealth,
-  type AlignmentScore
+  type AlignmentScore,
+  type MasterLayoutSnapshot
 } from "@magistrat/compiler-core";
 import {
+  applyMasterPatches,
   applyPatchOps,
   getPartialAppliedRecords,
   loadDocumentState,
   readDeckSnapshot,
+  readMasterLayouts,
   saveDocumentState
 } from "@magistrat/google-adapter";
 import { importRuleProfileJson } from "@magistrat/shared-types";
@@ -485,6 +489,42 @@ export function useAnalysis({
     [documentState, setDocumentState]
   );
 
+  const applyToMaster = useCallback(async () => {
+    if (!analysisState) {
+      setMessage("Run a scan first to build the style map.");
+      return;
+    }
+
+    try {
+      setMessage("Reading master/layout structure...");
+      const bridgeLayouts = await readMasterLayouts();
+
+      // Bridge returns GoogleBridgeMasterLayouts which matches MasterLayoutSnapshot shape
+      const masterLayouts: MasterLayoutSnapshot = bridgeLayouts;
+
+      const plan = planMasterPatches(analysisState.styleMap, masterLayouts);
+
+      if (plan.matched.length === 0) {
+        setMessage(
+          `No placeholders matched any StyleMap roles. ${plan.skipped.length} placeholder(s) skipped.`
+        );
+        return;
+      }
+
+      setMessage(`Applying style to ${plan.matched.length} placeholder(s)...`);
+      await applyMasterPatches(plan.requests);
+
+      const roles = [...new Set(plan.matched.map((m) => m.role))].join(", ");
+      setMessage(
+        `Master updated: ${plan.matched.length} placeholder(s) restyled (${roles}). ${plan.skipped.length} skipped.`
+      );
+    } catch (error: unknown) {
+      setMessage(
+        error instanceof Error ? error.message : "Failed to apply style to master."
+      );
+    }
+  }, [analysisState, setMessage]);
+
   const applyForFinding = useCallback(
     async (findingId: string) => {
       if (!analysisState || !documentState || !deck) {
@@ -535,6 +575,7 @@ export function useAnalysis({
     applySafe,
     applyForFinding,
     loadProfileFromJson,
+    applyToMaster,
     message,
     setMessage
   };

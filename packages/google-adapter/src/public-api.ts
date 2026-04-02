@@ -11,6 +11,8 @@ import {
   getHostCapabilities as detectHostCapabilities,
   resetAdapterProviderForTests
 } from "./provider-factory.js";
+import { getGoogleSlidesBridge, setGoogleSlidesBridgeForTests } from "./bridge-types.js";
+import type { GoogleBridgeMasterLayouts, GoogleBridgeMasterPatchResult } from "./bridge-types.js";
 import { stableTargetFingerprint } from "./target-fingerprint.js";
 
 export async function readDeckSnapshot(): Promise<DeckSnapshot> {
@@ -29,6 +31,22 @@ export async function applyPatchOps(patchOps: PatchOp[]): Promise<PatchRecord[]>
     throw new Error(status.capabilities.applyPatchOps.reason ?? "applyPatchOps is not supported");
   }
   return provider.applyPatchOps(patchOps);
+}
+
+export async function readMasterLayouts(): Promise<GoogleBridgeMasterLayouts> {
+  const bridge = getGoogleSlidesBridge();
+  if (!bridge?.readMasterLayouts) {
+    throw new Error("readMasterLayouts is not available on the current bridge");
+  }
+  return bridge.readMasterLayouts();
+}
+
+export async function applyMasterPatches(requests: unknown[]): Promise<GoogleBridgeMasterPatchResult> {
+  const bridge = getGoogleSlidesBridge();
+  if (!bridge?.applyMasterPatches) {
+    throw new Error("applyMasterPatches is not available on the current bridge");
+  }
+  return bridge.applyMasterPatches(requests);
 }
 
 export function getPartialAppliedRecords(error: unknown): PatchRecord[] {
@@ -89,7 +107,9 @@ export type {
   HostCapabilities
 } from "./adapter-types.js";
 
-export { setGoogleSlidesBridgeForTests } from "./bridge-types.js";
+export { setGoogleSlidesBridgeForTests };
+
+export type { GoogleBridgeMasterLayouts, GoogleBridgeMasterPatchResult };
 
 function isPatchRecord(value: unknown): value is PatchRecord {
   if (!value || typeof value !== "object") {

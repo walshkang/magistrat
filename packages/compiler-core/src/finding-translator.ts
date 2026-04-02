@@ -176,7 +176,7 @@ const RULE_TRANSLATORS: Record<string, RuleTranslator> = {
     riskLabel: "Manual only"
   }),
 
-  "BP-TABLE-002": (f) => ({
+  "BP-TABLE-002": (_f) => ({
     title: "Table border colors differ from exemplar",
     description: "Border color discipline defines visual hierarchy. Mixed borders signal template mixing.",
     actionLabel: null,

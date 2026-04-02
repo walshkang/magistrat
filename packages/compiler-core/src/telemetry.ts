@@ -19,7 +19,6 @@ export interface TelemetryEvent {
 export type TelemetrySink = (event: TelemetryEvent) => void;
 
 const consoleSink: TelemetrySink = (event) => {
-  // eslint-disable-next-line no-console
   console.log("[magistrat:telemetry]", JSON.stringify(event));
 };
 
