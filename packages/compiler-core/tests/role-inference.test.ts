@@ -108,4 +108,66 @@ describe("inferRoles", () => {
     const shape = result.deck.slides[0]?.shapes[0];
     expect(shape?.inferredRole).toBe("SUBTITLE");
   });
+
+  // Bold 18pt title at the top band (compact template) — must score TITLE, not UNKNOWN
+  it("bold 18pt shape at top=80 scores TITLE", () => {
+    const deck = createDeck({
+      slides: [
+        createSlide({
+          shapes: [
+            createShape({
+              objectId: "compact-title",
+              geometry: { left: 24, top: 80, width: 640, height: 50, rotation: 0 },
+              textRuns: [
+                {
+                  text: "Section Overview",
+                  fontFamily: "Aptos Display",
+                  fontSizePt: 18,
+                  bold: true,
+                  italic: true,
+                  fontColor: "#112233",
+                  fontAlpha: 1
+                }
+              ],
+              paragraphs: [{ level: 0, text: "Section Overview" }]
+            })
+          ]
+        })
+      ]
+    });
+    const result = inferRoles(deck);
+    const shape = result.deck.slides[0]?.shapes[0];
+    expect(shape?.inferredRole).toBe("TITLE");
+  });
+
+  // 10pt body text (dense corporate slide) — must score BODY, not UNKNOWN
+  it("10pt level-0 shape scores BODY", () => {
+    const deck = createDeck({
+      slides: [
+        createSlide({
+          shapes: [
+            createShape({
+              objectId: "dense-body",
+              geometry: { left: 60, top: 240, width: 500, height: 80, rotation: 0 },
+              textRuns: [
+                {
+                  text: "Detailed analysis of the quarterly figures",
+                  fontFamily: "Calibri",
+                  fontSizePt: 10,
+                  bold: false,
+                  italic: false,
+                  fontColor: "#333333",
+                  fontAlpha: 1
+                }
+              ],
+              paragraphs: [{ level: 0, text: "Detailed analysis of the quarterly figures" }]
+            })
+          ]
+        })
+      ]
+    });
+    const result = inferRoles(deck);
+    const shape = result.deck.slides[0]?.shapes[0];
+    expect(shape?.inferredRole).toBe("BODY");
+  });
 });

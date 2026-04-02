@@ -90,6 +90,12 @@ function scoreRole(shape: ShapeSnapshot): RoleConfidence {
     return { role: "TITLE", score: 0.93 };
   }
 
+  // Smaller bold titles (16–19 pt) at the very top band — common in compact deck templates.
+  // Cap at top <= 80 to avoid misclassifying bold subtitles that sit lower in the title zone.
+  if (shape.geometry.top <= 80 && firstRun.fontSizePt >= 16 && firstRun.bold) {
+    return { role: "TITLE", score: 0.82 };
+  }
+
   if (shape.geometry.top <= 200 && firstRun.fontSizePt >= 16 && firstRun.fontSizePt < 24) {
     return { role: "SUBTITLE", score: 0.9 };
   }
@@ -102,7 +108,12 @@ function scoreRole(shape: ShapeSnapshot): RoleConfidence {
     return { role: "CALLOUT", score: 0.76 };
   }
 
-  if (firstParagraph && firstParagraph.level === 0 && firstRun.fontSizePt >= 12) {
+  // 9 pt floor catches 10–11 pt body text common in dense corporate slides.
+  // Exclude the breadcrumb zone (top-left corner, small font) so those shapes stay UNKNOWN
+  // and remain eligible for BP-LAYOUT-004 breadcrumb drift detection.
+  const inBreadcrumbZone =
+    shape.geometry.top < 60 && shape.geometry.left < 200 && firstRun.fontSizePt <= 13;
+  if (firstParagraph && firstParagraph.level === 0 && firstRun.fontSizePt >= 9 && !inBreadcrumbZone) {
     return { role: "BODY", score: 0.74 };
   }
 
