@@ -18,6 +18,7 @@ export interface SlidesApiRequest {
       italic?: boolean;
       foregroundColor?: { opaqueColor: { rgbColor: SlidesApiColor } };
     };
+    textRange?: { type: "ALL" };
     fields: string;
   };
   updateParagraphStyle?: {
@@ -25,6 +26,7 @@ export interface SlidesApiRequest {
     style: {
       lineSpacing?: number;
     };
+    textRange?: { type: "ALL" };
     fields: string;
   };
   updateShapeProperties?: {
@@ -43,6 +45,8 @@ export interface SlidesApiRequest {
 export interface MasterLayoutPlaceholder {
   objectId: string;
   placeholderType: string;
+  /** Whether the placeholder has any text content. updateTextStyle fails on empty placeholders. */
+  hasText?: boolean;
 }
 
 export interface MasterLayoutPage {
@@ -133,6 +137,7 @@ function buildTextStyleRequests(
       updateTextStyle: {
         objectId,
         style,
+        textRange: { type: "ALL" },
         fields: fields.join(","),
       },
     },
@@ -143,6 +148,7 @@ function buildTextStyleRequests(
       updateParagraphStyle: {
         objectId,
         style: { lineSpacing: tokens.lineSpacing },
+        textRange: { type: "ALL" },
         fields: "lineSpacing",
       },
     });
@@ -205,8 +211,11 @@ export function planMasterPatches(
         continue;
       }
 
-      // Text style + paragraph style
-      requests.push(...buildTextStyleRequests(placeholder.objectId, tokens));
+      // Text style + paragraph style — only if placeholder has text content.
+      // updateTextStyle fails with "object has no text" on empty master placeholders.
+      if (placeholder.hasText !== false) {
+        requests.push(...buildTextStyleRequests(placeholder.objectId, tokens));
+      }
 
       // Fill for CALLOUT role
       if (role === "CALLOUT" && tokens.fillColor) {

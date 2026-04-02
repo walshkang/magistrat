@@ -92,16 +92,18 @@ function scoreRole(shape: ShapeSnapshot): RoleConfidence {
 
   // Smaller bold titles (16–19 pt) at the very top band — common in compact deck templates.
   // Cap at top <= 80 to avoid misclassifying bold subtitles that sit lower in the title zone.
+  // Bold + top-band position together are a strong enough signal for style-map checks.
   if (shape.geometry.top <= 80 && firstRun.fontSizePt >= 16 && firstRun.bold) {
-    return { role: "TITLE", score: 0.82 };
+    return { role: "TITLE", score: 0.9 };
   }
 
   if (shape.geometry.top <= 200 && firstRun.fontSizePt >= 16 && firstRun.fontSizePt < 24) {
     return { role: "SUBTITLE", score: 0.9 };
   }
 
+  // Strong geometric signal: position at bottom of slide + small font.
   if (shape.geometry.top >= 340 && firstRun.fontSizePt <= 12) {
-    return { role: "FOOTER", score: 0.88 };
+    return { role: "FOOTER", score: 0.9 };
   }
 
   if (text.split(/\s+/).length <= 12 && /[:.!?]$/.test(text) && firstRun.bold) {
@@ -111,10 +113,11 @@ function scoreRole(shape: ShapeSnapshot): RoleConfidence {
   // 9 pt floor catches 10–11 pt body text common in dense corporate slides.
   // Exclude the breadcrumb zone (top-left corner, small font) so those shapes stay UNKNOWN
   // and remain eligible for BP-LAYOUT-004 breadcrumb drift detection.
+  // Score raised to 0.9: font-size + level signal is strong enough for style-map checks.
   const inBreadcrumbZone =
     shape.geometry.top < 60 && shape.geometry.left < 200 && firstRun.fontSizePt <= 13;
   if (firstParagraph && firstParagraph.level === 0 && firstRun.fontSizePt >= 9 && !inBreadcrumbZone) {
-    return { role: "BODY", score: 0.74 };
+    return { role: "BODY", score: 0.9 };
   }
 
   return { role: "UNKNOWN", score: 0.4 };

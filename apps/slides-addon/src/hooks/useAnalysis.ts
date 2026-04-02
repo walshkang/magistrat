@@ -41,6 +41,15 @@ import { reconcilePatchLogByRecordIdentity } from "../patchLog.js";
 /** Shown after a rule profile is loaded from JSON (App closes import UI when this message is set). */
 export const PROFILE_LOADED_MESSAGE = "Profile loaded. Ready to scan.";
 
+/** GAS failure handler passes plain objects, not Error instances. Extract message from either. */
+function gasErrorMessage(error: unknown, fallback: string): string {
+  if (error instanceof Error) return error.message;
+  if (typeof error === "object" && error !== null && "message" in error) {
+    return String((error as { message: unknown }).message);
+  }
+  return fallback;
+}
+
 export interface AnalysisState {
   findings: Finding[];
   safePatches: PatchOp[];
@@ -216,7 +225,7 @@ export function useAnalysis({
       setSelectedExemplarSlideId(stylePhase.exemplarSlideId);
       setMessage("Review inferred rules before running full scan.");
     } catch (error: unknown) {
-      setMessage(error instanceof Error ? error.message : "Run clean up failed.");
+      setMessage(gasErrorMessage(error, "Run clean up failed."));
     }
   }, [
     additionalExemplarSlideIds,
@@ -283,7 +292,7 @@ export function useAnalysis({
         setPendingRuleConfirmation(null);
         setMessage(`Scan complete: ${filteredResult.analysis.findings.length} findings.`);
       } catch (error: unknown) {
-        setMessage(error instanceof Error ? error.message : "Rule confirmation failed.");
+        setMessage(gasErrorMessage(error, "Rule confirmation failed."));
       }
     },
     [additionalExemplarSlideIds, documentState, pendingRuleConfirmation, setDocumentState]
@@ -420,20 +429,18 @@ export function useAnalysis({
             setAnalysisState(refreshed.analysis);
             setLastReconciledIso(reconciledAtIso);
             setMessage(
-              `${error instanceof Error ? error.message : errorLabel} Recovered partial progress: reconciled ${partialApplied.length} applied patch records.`
+              `${gasErrorMessage(error, errorLabel)} Recovered partial progress: reconciled ${partialApplied.length} applied patch records.`
             );
             return;
           } catch (recoveryError: unknown) {
             setMessage(
-              `${error instanceof Error ? error.message : errorLabel} Partial progress was detected, but refresh failed: ${
-                recoveryError instanceof Error ? recoveryError.message : "unknown error"
-              }`
+              `${gasErrorMessage(error, errorLabel)} Partial progress was detected, but refresh failed: ${gasErrorMessage(recoveryError, "unknown error")}`
             );
             return;
           }
         }
 
-        setMessage(error instanceof Error ? error.message : errorLabel);
+        setMessage(gasErrorMessage(error, errorLabel));
       }
     },
     [
@@ -483,7 +490,7 @@ export function useAnalysis({
         setDocumentState(nextState);
         setMessage(PROFILE_LOADED_MESSAGE);
       } catch (error: unknown) {
-        setMessage(error instanceof Error ? error.message : "Failed to save profile.");
+        setMessage(gasErrorMessage(error, "Failed to save profile."));
       }
     },
     [documentState, setDocumentState]
@@ -519,9 +526,7 @@ export function useAnalysis({
         `Master updated: ${plan.matched.length} placeholder(s) restyled (${roles}). ${plan.skipped.length} skipped.`
       );
     } catch (error: unknown) {
-      setMessage(
-        error instanceof Error ? error.message : "Failed to apply style to master."
-      );
+      setMessage(gasErrorMessage(error, "Failed to apply style to master."));
     }
   }, [analysisState, setMessage]);
 

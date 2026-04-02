@@ -529,14 +529,6 @@ export function App() {
             <div className="summary-panel__actions">
               <button
                 type="button"
-                className={hasFindings ? "btn-secondary" : "btn-primary"}
-                onClick={() => void runCleanup()}
-                disabled={!canRunScan}
-              >
-                Scan deck
-              </button>
-              <button
-                type="button"
                 className={hasFindings ? "btn-primary" : "btn-secondary"}
                 onClick={() => void applySafe()}
                 disabled={!canApplySafeFromSummary}
@@ -545,6 +537,14 @@ export function App() {
                 }
               >
                 Apply Recommended Fixes ({safePatchCount})
+              </button>
+              <button
+                type="button"
+                className={hasFindings ? "btn-secondary" : "btn-primary"}
+                onClick={() => void runCleanup()}
+                disabled={!canRunScan}
+              >
+                Scan deck
               </button>
               {canRatify && !ratifyState ? (
                 <button type="button" className="btn-primary ratify-btn" onClick={() => void ratify()}>
@@ -615,11 +615,7 @@ export function App() {
           ) : null}
 
           <section className="panel">
-            <h2>Linter stream</h2>
-            <p>
-              {filteredFindings.length} findings · safe={analysisState.safePatches.length} · caution=
-              {analysisState.cautionPatches.length} · manual={analysisState.manualPatches.length}
-            </p>
+            <h2>Findings</h2>
             {analysisState.stale && !devMode ? (
               <p className="muted">Loaded from persisted state; run clean up to refresh against current deck.</p>
             ) : null}

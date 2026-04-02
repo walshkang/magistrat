@@ -545,7 +545,7 @@ function evaluatePerSlideLayoutFindings(
         const x = sh.geometry.left;
         const drift = x - modeX;
         const absD = Math.abs(drift);
-        if (absD > 1e-6 && absD <= thr) {
+        if (absD >= 0.5 && absD <= thr) {
           const roleScore = sh.inferredRoleScore ?? ROLE_CONFIDENCE_MIN.manual;
           const findingId = `finding-${stableHash([slide.slideId, sh.objectId, "BP-LAYOUT-007"])}`;
           findings.push({
@@ -815,7 +815,7 @@ function evaluateObjectHygiene(
         )
       ],
       confidence: roleScore,
-      risk: "safe",
+      risk: "manual",
       severity: "info",
       coverage: "ANALYZED"
     });
@@ -845,7 +845,7 @@ function evaluateObjectHygiene(
             )
           ],
           confidence: roleScore,
-          risk: "safe",
+          risk: "manual",
           severity: "warn",
           coverage: "ANALYZED"
         });

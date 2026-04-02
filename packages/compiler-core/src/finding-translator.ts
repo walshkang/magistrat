@@ -338,6 +338,27 @@ const RULE_TRANSLATORS: Record<string, RuleTranslator> = {
     riskLabel: riskLabel(f)
   }),
 
+  "BP-LAYOUT-007": (f) => ({
+    title: `Left edge deviates from alignment grid by ${num(Math.abs(f.observed.drift as number))}pt`,
+    description: `Shape left edge is ${num(f.observed.x as number)}pt; dominant grid is ${num(f.observed.modeX as number)}pt. Adjust position manually.`,
+    actionLabel: null,
+    riskLabel: "Manual only"
+  }),
+
+  "BP-LAYOUT-008": (_f) => ({
+    title: "Uneven horizontal distribution",
+    description: "Objects in a shared Y-band have inconsistent horizontal spacing. Adjust positions manually.",
+    actionLabel: null,
+    riskLabel: "Manual only"
+  }),
+
+  "BP-LAYOUT-009": (f) => ({
+    title: "Slide text density too high",
+    description: `Text covers ${Math.round((f.observed.densityRatio as number) * 100)}% of the safe zone (threshold ${Math.round((f.expected.maxDensityRatio as number) * 100)}%). Consider splitting or trimming content.`,
+    actionLabel: null,
+    riskLabel: "Manual only"
+  }),
+
   "BP-SAFETY-001": (f) => ({
     title: "Grouped object and geometry patch",
     description: `A ${str(f.observed.patchOp)} patch would target a grouped shape. Apply geometry changes manually after ungrouping if appropriate.`,
@@ -348,6 +369,66 @@ const RULE_TRANSLATORS: Record<string, RuleTranslator> = {
   "BP-MASTERS-001": (_f) => ({
     title: "Master/layout metadata unavailable",
     description: "The host did not supply master or layout information; layout hygiene is report-only in v1.",
+    actionLabel: null,
+    riskLabel: "Manual only"
+  }),
+
+  "BP-HYGIENE-006": (f) => ({
+    title: "Draft tag remnant found",
+    description: `Text contains "${str(f.observed.matchedToken)}". Remove placeholder markers before finalising.`,
+    actionLabel: null,
+    riskLabel: "Manual only"
+  }),
+
+  "BP-TYPO-010": (f) => ({
+    title: "Double space detected",
+    description: `"…${str(f.observed.excerpt)}…" — double spaces break justification and are an outdated convention.`,
+    actionLabel: null,
+    riskLabel: "Manual only"
+  }),
+
+  "BP-TYPO-011": (f) => ({
+    title: "Title ends with a period",
+    description: `"${str(f.observed.titleText)}" — action titles should not end with terminal periods.`,
+    actionLabel: null,
+    riskLabel: "Manual only"
+  }),
+
+  "BP-WCAG-001": (f) => ({
+    title: `Low contrast: ${num(f.observed.contrastRatio)}:1`,
+    description: `Text ${str(f.observed.textColor)} on fill ${str(f.observed.fillColor)} — WCAG 1.4.3 requires at least ${num(f.expected.minContrastRatio)}:1.`,
+    actionLabel: null,
+    riskLabel: "Manual only"
+  }),
+
+  "BP-TYPO-008": (f) => ({
+    title: `Capitalization style inconsistency`,
+    description: `This title uses ${str(f.observed.style)} but the deck majority is ${str(f.expected.dominantStyle)}.`,
+    actionLabel: null,
+    riskLabel: "Manual only"
+  }),
+
+  "BP-TYPO-009": (f) => ({
+    title: "Bullet punctuation inconsistency",
+    description: `Bullets end with ${str(f.observed.terminalStyle)} but the majority convention is ${str(f.expected.dominantStyle)}.`,
+    actionLabel: null,
+    riskLabel: "Manual only"
+  }),
+
+  "BP-CONT-004": (f) => ({
+    title: f.observed.conflict === "duplicate_page_number"
+      ? `Duplicate page number ${num(f.observed.pageNumber)}`
+      : `Page number gap before ${num(f.observed.pageNumber)}`,
+    description: f.observed.conflict === "duplicate_page_number"
+      ? `Page ${num(f.observed.pageNumber)} appears on multiple slides.`
+      : `Expected page ${num(f.expected.expectedNextPageNumber)} but found ${num(f.observed.pageNumber)}.`,
+    actionLabel: null,
+    riskLabel: "Manual only"
+  }),
+
+  "BP-CONT-005": (f) => ({
+    title: `${str(f.observed.category)} format inconsistency`,
+    description: `"${str(f.observed.value)}" uses format "${str(f.observed.format)}" but deck majority is "${str(f.expected.dominantFormat)}".`,
     actionLabel: null,
     riskLabel: "Manual only"
   })
@@ -403,7 +484,9 @@ function fallbackTranslation(finding: Finding): TranslatedFinding {
   return {
     title: `${finding.ruleId}: ${finding.severity} finding`,
     description: finding.evidence[0]?.summary ?? "No additional details available.",
-    actionLabel: actionLabel(finding),
+    // Never show action button for un-translated rules — if a rule doesn't have
+    // a translator entry, it doesn't have a working patch either.
+    actionLabel: null,
     riskLabel: riskLabel(finding)
   };
 }

@@ -348,7 +348,7 @@ function readPresentation() {
 function readMasterLayouts() {
   var presentationId = SlidesApp.getActivePresentation().getId();
   var resp = Slides.Presentations.get(presentationId, {
-    fields: 'masters(objectId,pageElements(objectId,shape(placeholder))),layouts(objectId,layoutProperties(name,displayName),pageElements(objectId,shape(placeholder)))',
+    fields: 'masters(objectId,pageElements(objectId,shape(placeholder,text(textElements)))),layouts(objectId,layoutProperties(name,displayName),pageElements(objectId,shape(placeholder,text(textElements))))',
   });
 
   var pages = [];
@@ -361,9 +361,11 @@ function readMasterLayouts() {
         for (var ei = 0; ei < master.pageElements.length; ei++) {
           var el = master.pageElements[ei];
           if (el.shape && el.shape.placeholder && el.shape.placeholder.type) {
+            var hasText = !!(el.shape.text && el.shape.text.textElements && el.shape.text.textElements.length > 0);
             placeholders.push({
               objectId: el.objectId,
               placeholderType: el.shape.placeholder.type,
+              hasText: hasText,
             });
           }
         }
@@ -388,9 +390,11 @@ function readMasterLayouts() {
         for (var ei = 0; ei < layout.pageElements.length; ei++) {
           var el = layout.pageElements[ei];
           if (el.shape && el.shape.placeholder && el.shape.placeholder.type) {
+            var hasText = !!(el.shape.text && el.shape.text.textElements && el.shape.text.textElements.length > 0);
             placeholders.push({
               objectId: el.objectId,
               placeholderType: el.shape.placeholder.type,
+              hasText: hasText,
             });
           }
         }
