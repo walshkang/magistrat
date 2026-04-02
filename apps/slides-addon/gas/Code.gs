@@ -50,6 +50,7 @@ function getCapabilities() {
   return {
     readDeckSnapshot: true,
     applyPatchOps: true,
+    applyMasterPatches: true,
     selectObject: false,
     documentStateCarrier: true,
     revisionGuard: false,
@@ -338,6 +339,82 @@ function readPresentation() {
   }
 
   return result;
+}
+
+/**
+ * Read master and layout pages with their placeholders via Slides Advanced Service.
+ * Returns { pages: [{ objectId, pageType, name?, placeholders: [{ objectId, placeholderType }] }] }
+ */
+function readMasterLayouts() {
+  var presentationId = SlidesApp.getActivePresentation().getId();
+  var resp = Slides.Presentations.get(presentationId, {
+    fields: 'masters(objectId,pageElements(objectId,shape(placeholder))),layouts(objectId,layoutProperties(name,displayName),pageElements(objectId,shape(placeholder)))',
+  });
+
+  var pages = [];
+
+  if (resp.masters) {
+    for (var mi = 0; mi < resp.masters.length; mi++) {
+      var master = resp.masters[mi];
+      var placeholders = [];
+      if (master.pageElements) {
+        for (var ei = 0; ei < master.pageElements.length; ei++) {
+          var el = master.pageElements[ei];
+          if (el.shape && el.shape.placeholder && el.shape.placeholder.type) {
+            placeholders.push({
+              objectId: el.objectId,
+              placeholderType: el.shape.placeholder.type,
+            });
+          }
+        }
+      }
+      pages.push({
+        objectId: master.objectId,
+        pageType: 'master',
+        placeholders: placeholders,
+      });
+    }
+  }
+
+  if (resp.layouts) {
+    for (var li = 0; li < resp.layouts.length; li++) {
+      var layout = resp.layouts[li];
+      var layoutName = undefined;
+      if (layout.layoutProperties) {
+        layoutName = layout.layoutProperties.displayName || layout.layoutProperties.name;
+      }
+      var placeholders = [];
+      if (layout.pageElements) {
+        for (var ei = 0; ei < layout.pageElements.length; ei++) {
+          var el = layout.pageElements[ei];
+          if (el.shape && el.shape.placeholder && el.shape.placeholder.type) {
+            placeholders.push({
+              objectId: el.objectId,
+              placeholderType: el.shape.placeholder.type,
+            });
+          }
+        }
+      }
+      pages.push({
+        objectId: layout.objectId,
+        pageType: 'layout',
+        name: layoutName,
+        placeholders: placeholders,
+      });
+    }
+  }
+
+  return { pages: pages };
+}
+
+/**
+ * Apply batchUpdate requests to the presentation via Slides Advanced Service.
+ * Takes an array of Slides API request objects.
+ */
+function applyMasterPatches(requests) {
+  var presentationId = SlidesApp.getActivePresentation().getId();
+  Slides.Presentations.batchUpdate({ requests: requests }, presentationId);
+  return { success: true, requestCount: requests.length };
 }
 
 function extractTextInfo(textRange) {

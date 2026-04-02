@@ -13,5 +13,7 @@ export { buildStyleMap } from "./style-map.js";
 export { translateFinding, notAnalyzedBucket, NOT_ANALYZED_BUCKET_LABELS } from "./finding-translator.js";
 export type { TranslatedFinding, TranslatedFindingRiskLabel, NotAnalyzedBucket } from "./finding-translator.js";
 export { inferCandidateRules, mergeStyleMaps } from "./infer-rules.js";
+export { planMasterPatches } from "./master-planner.js";
+export type { MasterPatchPlan, MasterLayoutSnapshot, MasterLayoutPage, MasterLayoutPlaceholder, SlidesApiRequest } from "./master-planner.js";
 export { emitEvent, setTelemetrySink, resetTelemetrySink } from "./telemetry.js";
 export type { TelemetryEvent, TelemetrySink } from "./telemetry.js";

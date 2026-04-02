@@ -9,6 +9,7 @@ export interface GoogleHostInfo {
 export interface GoogleBridgeCapabilities {
   readDeckSnapshot?: boolean;
   applyPatchOps?: boolean;
+  applyMasterPatches?: boolean;
   selectObject?: boolean;
   documentStateCarrier?: boolean;
   revisionGuard?: boolean;
@@ -135,6 +136,27 @@ export interface GoogleBridgePresentation {
   slides: GoogleBridgeSlide[];
 }
 
+export interface GoogleBridgeMasterPlaceholder {
+  objectId: string;
+  placeholderType: string;
+}
+
+export interface GoogleBridgeMasterPage {
+  objectId: string;
+  pageType: "master" | "layout";
+  name?: string;
+  placeholders: GoogleBridgeMasterPlaceholder[];
+}
+
+export interface GoogleBridgeMasterLayouts {
+  pages: GoogleBridgeMasterPage[];
+}
+
+export interface GoogleBridgeMasterPatchResult {
+  success: boolean;
+  requestCount: number;
+}
+
 export interface BridgeMutation {
   patchId: string;
   op: PatchOp["op"];
@@ -153,6 +175,8 @@ export interface GoogleSlidesBridge {
   readPresentation(): Promise<GoogleBridgePresentation>;
   // SAFE mode may invoke this multiple times per apply request when chunking writes.
   applyMutations?(mutations: BridgeMutation[], options: { requiredRevisionId?: string }): Promise<BridgeApplyResult>;
+  readMasterLayouts?(): Promise<GoogleBridgeMasterLayouts>;
+  applyMasterPatches?(requests: unknown[]): Promise<GoogleBridgeMasterPatchResult>;
   getDocumentCarrier?(): Promise<string>;
   setDocumentCarrier?(content: string): Promise<void>;
   selectObject?(slideId: string, objectId: string): Promise<boolean>;
