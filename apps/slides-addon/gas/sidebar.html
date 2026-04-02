@@ -64,6 +64,22 @@
             .setDocumentCarrier(content);
         });
       },
+      readMasterLayouts: function () {
+        return new Promise(function (resolve, reject) {
+          google.script.run
+            .withSuccessHandler(resolve)
+            .withFailureHandler(reject)
+            .readMasterLayouts();
+        });
+      },
+      applyMasterPatches: function (requests) {
+        return new Promise(function (resolve, reject) {
+          google.script.run
+            .withSuccessHandler(resolve)
+            .withFailureHandler(reject)
+            .applyMasterPatches(requests);
+        });
+      },
     };
   </script>
 

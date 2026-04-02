@@ -99,7 +99,7 @@ export interface RunChecksResult {
   suggestedPatches: PatchOp[];
 }
 
-export function runChecks(deck: DeckSnapshot, styleMap: StyleMap, tolerance?: ToleranceConfig): RunChecksResult {
+export function runChecks(deck: DeckSnapshot, styleMap: StyleMap, tolerance?: ToleranceConfig, exemplarSlideIdOverride?: string): RunChecksResult {
   const tol = tolerance ?? defaultToleranceConfig();
   const findings: Finding[] = [];
   const suggestedPatches: PatchOp[] = [];
@@ -122,10 +122,23 @@ export function runChecks(deck: DeckSnapshot, styleMap: StyleMap, tolerance?: To
   };
 
   const dominantProofingLanguage = computeDominantProofingLanguage(deck);
-  const exemplarSlideId = resolveExemplarSlideId(deck);
+  // Only skip the exemplar slide when the caller explicitly provides the ID.
+  // The fallback heuristic (resolveExemplarSlideId) is used for internal checks
+  // that need the exemplar context but should NOT suppress findings.
+  const exemplarSlideId = exemplarSlideIdOverride ?? resolveExemplarSlideId(deck);
+  const skipExemplarSlide = exemplarSlideIdOverride !== undefined;
   const exemplarPalette = buildExemplarColorPalette(styleMap);
 
   for (const slide of deck.slides) {
+    // Skip the exemplar slide — it is the reference, not a target for findings.
+    if (skipExemplarSlide && slide.slideId === exemplarSlideId) {
+      for (const shape of slide.shapes) {
+        markAnalyzed(slide.slideId, shape.objectId);
+      }
+      analyzedSlides.add(slide.slideId);
+      continue;
+    }
+
     for (const shape of slide.shapes) {
       if (!shape.supportedForAnalysis) {
         unhandledTypes.set(shape.shapeType, (unhandledTypes.get(shape.shapeType) ?? 0) + 1);
@@ -341,6 +354,7 @@ export function runChecks(deck: DeckSnapshot, styleMap: StyleMap, tolerance?: To
 
   if (exemplarPalette.size > 0) {
     for (const slide of deck.slides) {
+      if (skipExemplarSlide && slide.slideId === exemplarSlideId) continue;
       for (const shape of slide.shapes) {
         const lw = shape.lineWidth;
         const lc = shape.lineColor;

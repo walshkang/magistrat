@@ -332,7 +332,7 @@ function analyzeDeckSnapshot(
   const ir = buildDeckIr(deck);
   const inferred = inferRoles(ir);
   const styleMapResult = buildStyleMap(exemplarSlide, exemplarMode);
-  const checks = runChecks(inferred.deck, styleMapResult.styleMap);
+  const checks = runChecks(inferred.deck, styleMapResult.styleMap, undefined, exemplarSlide.slideId);
   const alignmentScore = computeAlignmentScore(checks.findings, checks.coverage);
   const patches = planPatches(checks.findings, checks.suggestedPatches);
   const exemplarHealth = scoreExemplarHealth(exemplarSlide);

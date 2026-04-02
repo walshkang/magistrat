@@ -625,7 +625,7 @@ function finishAnalysisFromStyleMap(phase: StyleMapPhaseResult): AnalyzeResult {
 
   const ir = buildDeckIr(deck);
   const inferred = inferRoles(ir);
-  const checks = runChecks(inferred.deck, styleMap);
+  const checks = runChecks(inferred.deck, styleMap, undefined, exemplarSlideId);
   const alignmentScore = computeAlignmentScore(checks.findings, checks.coverage);
   const patches = planPatches(checks.findings, checks.suggestedPatches);
   const exemplarHealth = scoreExemplarHealth(exemplarSlide);
